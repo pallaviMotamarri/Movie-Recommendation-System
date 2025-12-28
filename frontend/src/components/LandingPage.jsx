@@ -61,7 +61,7 @@ const LandingPage = () => {
                     padding="16px 34px 16px 50px"
                   />
                   
-                  <div className="trailer-button">
+                  {/* <div className="trailer-button">
                     <img 
                       src="/images/PlayButton.png" 
                       alt="Play Icon"
@@ -70,7 +70,18 @@ const LandingPage = () => {
                     <span className="trailer-text">
                       Watch Trailer Picks
                     </span>
-                  </div>
+                  </div> */}
+
+                  <button className="trailer-button" type="button">
+                   <img 
+                    src="/images/PlayButton.png" 
+                    alt="Play trailer"
+                    className="play-icon"
+                  />
+                    <span className="trailer-text">
+                      Watch Trailer Picks
+                    </span>
+                </button>
                 </div>
               </div>
             </section>
@@ -135,7 +146,7 @@ const LandingPage = () => {
                 <footer className="footer">
                   <div className="footer-left">
                     <img 
-                      src="/images/img_22x12.png" 
+                      src="/images/Logo.svg" 
                       alt="Copyright"
                       className="copyright-icon"
                     />
