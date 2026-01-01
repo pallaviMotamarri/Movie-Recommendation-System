@@ -604,6 +604,57 @@ brand-text {
   margin-top: 2px;
 }
 
+/* Dubbed Movie Badge */
+.dubbed-badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background-color: #ff6b35;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: bold;
+  z-index: 5;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* Movie row titles in Telugu */
+.row-title {
+  font-family: 'Cinzel', serif;
+  font-weight: 700;
+}
+
+/* Updated MovieCard component to show dubbed badge */
+.movie-card.dubbed .movie-poster::after {
+  content: 'తెలుగు డబ్బింగ్';
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background-color: #ff6b35;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: bold;
+  z-index: 5;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Animation for dubbed badge */
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+
+.dubbed-badge {
+  animation: pulse 2s infinite;
+}
+
 /* Modal Styles */
 .modal-overlay {
   position: fixed;
