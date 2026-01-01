@@ -1,8 +1,11 @@
 import React, { useState } from 'react';
 import Button from './Button';
 import Header from './Header';
+import { useNavigate } from "react-router-dom";
 
 const LandingPage = () => {
+  const navigate = useNavigate();
+
   return (
     <>
       <head>
@@ -59,6 +62,7 @@ const LandingPage = () => {
                   <Button 
                     text="Get Started"
                     padding="16px 34px 16px 50px"
+                    onClick={() => navigate('/dashboard')}
                   />
                   
                   {/* <div className="trailer-button">
