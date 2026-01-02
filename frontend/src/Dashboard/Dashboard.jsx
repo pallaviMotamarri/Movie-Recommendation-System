@@ -14,6 +14,7 @@ export default function Dashboard() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [selectedMovie, setSelectedMovie] = useState(null);
   const [dubbedMovies, setDubbedMovies] = useState([]);
+  const [genres, setGenres] = useState({});
 
 
   useEffect(() => {
@@ -28,6 +29,26 @@ export default function Dashboard() {
           return `https://image.tmdb.org/t/p/${size}${path}`;
         };
 
+        const fetchGenres = async () => {
+        try {
+          const response = await fetch(`${BASE_URL}/genre/movie/list?api_key=${API_KEY}&language=en`);
+          const data = await response.json();
+          
+          // Create a map of genre IDs to names
+          const genreMap = {};
+          data.genres?.forEach(genre => {
+            genreMap[genre.id] = genre.name;
+          });
+          setGenres(genreMap);
+        } catch (error) {
+          console.error('Error fetching genres:', error);
+        }
+      };
+
+      // Call fetchGenres
+      await fetchGenres();
+
+
         // Function to fetch Telugu movies with fallback
         const fetchTeluguMovies = async (url) => {
           try {
@@ -37,7 +58,7 @@ export default function Dashboard() {
             // Filter movies that are either:
             // 1. Original Telugu (original_language === 'te')
             // 2. OR have Telugu as an available language
-            return data.results?.filter(movie => {
+            const teluguMovies = data.results?.filter(movie => {
               // Check if it's Telugu original
               const isOriginalTelugu = movie.original_language === 'te';
               
@@ -55,7 +76,31 @@ export default function Dashboard() {
               );
               
               return isOriginalTelugu || hasTeluguTitle || hasTeluguDubbed;
-            }).slice(0, 10) || [];
+            }) || [];
+             if (teluguMovies.length <= 15) {
+      return teluguMovies;
+    }
+    
+    // 3. Get random 10 movies from the filtered list
+    const randomMovies = [];
+    const availableIndices = [...Array(teluguMovies.length).keys()];
+    
+    // Shuffle the indices
+    for (let i = availableIndices.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [availableIndices[i], availableIndices[j]] = [availableIndices[j], availableIndices[i]];
+    }
+
+    // Take first 15 random indices
+    const selectedIndices = availableIndices.slice(0, 15);
+    
+    // Get movies at those random indices
+    selectedIndices.forEach(index => {
+      randomMovies.push(teluguMovies[index]);
+    });
+    
+    return randomMovies;
+            
           } catch (error) {
             console.error('Error fetching Telugu movies:', error);
             return [];
@@ -77,7 +122,7 @@ export default function Dashboard() {
           fetchTeluguMovies(`${BASE_URL}/discover/movie?api_key=${API_KEY}&with_original_language=te&sort_by=primary_release_date.desc&primary_release_date.gte=${new Date().toISOString().split('T')[0]}&page=1`),
           
           // Now Playing Telugu movies
-          fetchTeluguMovies(`${BASE_URL}/discover/movie?api_key=${API_KEY}&with_original_language=te&sort_by=primary_release_date.desc&primary_release_date.lte=${new Date().toISOString().split('T')[0]}&page=1`)
+          fetchTeluguMovies(`${BASE_URL}/discover/movie?api_key=${API_KEY}&with_original_language=te&sort_by=primary_release_date.desc&primary_release_date.lte=${new Date().toISOString().split('T')[0]}&page=1`),
         ]);
 
         // For dubbed movies, we need a different approach since TMDB doesn't have direct dubbed filter
@@ -160,27 +205,64 @@ const fetchDubbedMovies = async () => {
     });
     
     // Take top 10 and add dubbed indicator
-    const dubbedMovies = uniqueMovies.slice(0, 10).map(movie => ({
-      ...movie,
-      title: `${movie.title}`,
-      vote_average: movie.vote_average || 6.0, // Default rating if not available
-      backdrop_path: movie.backdrop_path || movie.poster_path, // Use poster as backup
-    }));
+    // const dubbedMovies = uniqueMovies.slice(0, 15).map(movie => ({
+    //   ...movie,
+    //   title: `${movie.title}`,
+    //   vote_average: movie.vote_average || 6.0, // Default rating if not available
+    //   backdrop_path: movie.backdrop_path || movie.poster_path, // Use poster as backup
+    // }));
+
     
     // console.log('Processed dubbed movies:', dubbedMovies);
     
     // If we still don't have enough movies, add hardcoded ones
-    if (dubbedMovies.length < 5) {
-      const hardcoded = getHardcodedDubbedMovies();
-      // Add only new movies (by ID)
-      hardcoded.forEach(movie => {
-        if (!dubbedMovies.some(m => m.id === movie.id)) {
-          dubbedMovies.push(movie);
-        }
-      });
+    // if (dubbedMovies.length < 5) {
+    //   const hardcoded = getHardcodedDubbedMovies();
+    //   // Add only new movies (by ID)
+    //   hardcoded.forEach(movie => {
+    //     if (!dubbedMovies.some(m => m.id === movie.id)) {
+    //       dubbedMovies.push(movie);
+    //     }
+    //   });
+    // }
+    
+    // return dubbedMovies.slice(0, 15);
+     if (uniqueMovies.length <= 15) {
+      // Add dubbed indicator and return all
+      const dubbedMovies = uniqueMovies.map(movie => ({
+        ...movie,
+        title: `${movie.title} (తెలుగు డబ్బింగ్)`,
+        vote_average: movie.vote_average || 6.0,
+        backdrop_path: movie.backdrop_path || movie.poster_path,
+      }));
+      return dubbedMovies;
     }
     
-    return dubbedMovies.slice(0, 10);
+    // Get random 15 movies from unique movies
+    const randomMovies = [];
+    const availableIndices = [...Array(uniqueMovies.length).keys()];
+    
+    // Shuffle the indices
+    for (let i = availableIndices.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [availableIndices[i], availableIndices[j]] = [availableIndices[j], availableIndices[i]];
+    }
+    
+    // Take first 15 random indices
+    const selectedIndices = availableIndices.slice(0, 15);
+    
+    // Get movies at those random indices and add dubbed indicator
+    selectedIndices.forEach(index => {
+      const movie = uniqueMovies[index];
+      randomMovies.push({
+        ...movie,
+        title: `${movie.title}`,
+        vote_average: movie.vote_average || 6.0,
+        backdrop_path: movie.backdrop_path || movie.poster_path,
+      });
+    });
+    
+    return randomMovies;
     
   } catch (error) {
     console.error('Error in fetchDubbedMovies:', error);
@@ -478,7 +560,7 @@ const getHardcodedDubbedMovies = () => {
     <div className="app">
       <Header isMenuOpen={isMenuOpen} setIsMenuOpen={setIsMenuOpen} />
       <HeroCarousel 
-        movies={trending} 
+        movies={nowPlaying} 
         selectedMovie={selectedMovie} 
         setSelectedMovie={setSelectedMovie}
       />
@@ -496,6 +578,7 @@ const getHardcodedDubbedMovies = () => {
         <MovieDetailModal 
           movie={selectedMovie} 
           onClose={() => setSelectedMovie(null)} 
+          genres={genres}
         />
       )}
     </div>
@@ -862,7 +945,7 @@ function MovieRow({ title, movies, onMovieClick }) {
 // Movie Detail Modal Component
 
 
-function MovieDetailModal({ movie, onClose }) {
+function MovieDetailModal({ movie, onClose, genres }) {
   const IMAGE_BASE_URL = "https://image.tmdb.org/t/p";
   const getSafeRating = (rating) => {
     if (typeof rating !== 'number' || isNaN(rating)) return '0.0';
@@ -884,6 +967,19 @@ function MovieDetailModal({ movie, onClose }) {
     return 'N/A';
   }
 };
+ const getGenreNames = () => {
+    if (!movie.genre_ids || movie.genre_ids.length === 0) {
+      return 'Not specified';
+    }
+    
+    const genreNames = movie.genre_ids
+      .map(id => genres[id])
+      .filter(name => name)
+      .join(', ');
+    
+    return genreNames || 'Not specified';
+  };
+
 
   return (
     <div className="modal-overlay">
@@ -909,7 +1005,7 @@ function MovieDetailModal({ movie, onClose }) {
           <div className="modal-hero-content">
             <h2 className="modal-title">{movie.title}</h2>
 
-            <div className="modal-meta">
+            {/* <div className="modal-meta">
               <span className="meta-pill">
                 {formatDate(movie.release_date)}
               </span>
@@ -918,8 +1014,8 @@ function MovieDetailModal({ movie, onClose }) {
                 {getSafeRating(movie.vote_average)}
               </span>
 
-              <span className="meta-pill">Movie</span>
-            </div>
+              <span className="meta-pill">{getGenreNames().split(',')[0] || 'Movie'}</span>
+            </div> */}
           </div>
         </div>
 
@@ -944,8 +1040,8 @@ function MovieDetailModal({ movie, onClose }) {
               </div>
 
               <div>
-                <p className="detail-label">Type</p>
-                <p className="detail-value">Movie</p>
+                <p className="detail-label">Genre</p>
+                <p className="detail-value">{getGenreNames()}</p>
               </div>
             </div>
           </div>
