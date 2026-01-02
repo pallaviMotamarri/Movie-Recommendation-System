@@ -262,12 +262,12 @@ export default function Dashboard() {
       />
       
       <div className="movie-rows-container">
-        <MovieRow title="Trending Now" movies={trending} />
-        <MovieRow title="Dubbed Movies" movies={dubbedMovies} />
-        <MovieRow title="Popular on Platform" movies={popular} />
-        <MovieRow title="Top Rated Movies" movies={topRated} />
-        <MovieRow title="Coming Soon" movies={upcoming} />
-        <MovieRow title="Now Playing" movies={nowPlaying} />
+        <MovieRow title="Coming Soon" movies={upcoming} onMovieClick={setSelectedMovie} />
+        <MovieRow title="Now Playing" movies={nowPlaying} onMovieClick={setSelectedMovie} />
+        <MovieRow title="Trending Now" movies={trending} onMovieClick={setSelectedMovie} />
+        <MovieRow title="Dubbed Movies" movies={dubbedMovies} onMovieClick={setSelectedMovie} />
+        <MovieRow title="Popular" movies={popular} onMovieClick={setSelectedMovie} />
+        <MovieRow title="Top Rated Movies" movies={topRated} onMovieClick={setSelectedMovie} />
       </div>
 
       {selectedMovie && (
@@ -283,10 +283,14 @@ export default function Dashboard() {
 // Header Component
 function Header({ isMenuOpen, setIsMenuOpen }) {
   const navItems = [
-    { label: 'Movies', href: '#' },
-    { label: 'TV Shows', href: '#' },
-    { label: 'Sports', href: '#' },
-    { label: 'Premium', href: '#' },
+    { label: 'Comedy', href: '#' },
+    { label: 'Romance', href: '#' },
+    { label: 'Thriller', href: '#' },
+    { label: 'Horror', href: '#' },
+    { label: 'Action', href: '#' },
+    { label: 'Drama', href: '#' },
+    { label: 'Sci-Fi', href: '#' },
+    { label: 'Fantasy', href: '#' },
   ];
 
   return (
@@ -415,10 +419,10 @@ function HeroCarousel({ movies, selectedMovie, setSelectedMovie }) {
               </p>
 
               <div className="carousel-actions">
-                <button className="watch-now-btn">
+                {/* <button className="watch-now-btn">
                   <Play size={20} />
                   <span>Watch Now</span>
-                </button>
+                </button> */}
                 <button 
                   className="more-info-btn"
                   onClick={() => setSelectedMovie(currentMovie)}
@@ -429,13 +433,13 @@ function HeroCarousel({ movies, selectedMovie, setSelectedMovie }) {
             </div>
           </div>
 
-          <button onClick={goToPrevious} className="carousel-nav prev">
+          {/* <button onClick={goToPrevious} className="carousel-nav prev">
             <ChevronLeft size={24} />
           </button>
 
           <button onClick={goToNext} className="carousel-nav next">
             <ChevronRight size={24} />
-          </button>
+          </button> */}
         </div>
 
         <div className="carousel-indicators">
@@ -453,11 +457,11 @@ function HeroCarousel({ movies, selectedMovie, setSelectedMovie }) {
 }
 
 // Movie Card Component
-function MovieCard({ movie }) {
+function MovieCard({ movie, onClick }) {
   const IMAGE_BASE_URL = 'https://image.tmdb.org/t/p';
 
   return (
-    <div className="movie-card">
+    <div className="movie-card" onClick={() => onClick(movie)}>
       <div className="movie-poster">
         {movie.poster_path ? (
           <img
@@ -487,11 +491,11 @@ function MovieCard({ movie }) {
 }
 
 // Dubbed Movie Card Component (with Telugu Dubbed badge)
-function DubbedMovieCard({ movie }) {
+function DubbedMovieCard({ movie, onClick }) {
   const IMAGE_BASE_URL = 'https://image.tmdb.org/t/p';
 
   return (
-    <div className="movie-card dubbed">
+    <div className="movie-card dubbed" onClick={() => onClick(movie)}>
       <div className="movie-poster">
         {movie.poster_path ? (
           <img
@@ -524,7 +528,7 @@ function DubbedMovieCard({ movie }) {
 }
 
 // Movie Row Component
-function MovieRow({ title, movies }) {
+function MovieRow({ title, movies, onMovieClick }) {
   const scrollContainerRef = useRef(null);
   const [showLeftArrow, setShowLeftArrow] = useState(false);
   const [showRightArrow, setShowRightArrow] = useState(true);
@@ -576,9 +580,9 @@ function MovieRow({ title, movies }) {
         >
           {movies.map((movie) => (
             isDubbedRow ? (
-              <DubbedMovieCard key={movie.id} movie={movie} />
+              <DubbedMovieCard key={movie.id} movie={movie} onClick={onMovieClick} />
             ) : (
-              <MovieCard key={movie.id} movie={movie} />
+              <MovieCard key={movie.id} movie={movie} onClick={onMovieClick} />
             )
           ))}
         </div>
@@ -597,86 +601,70 @@ function MovieRow({ title, movies }) {
 }
 
 // Movie Detail Modal Component
+
+
 function MovieDetailModal({ movie, onClose }) {
-  const [isMuted, setIsMuted] = useState(true);
-  const IMAGE_BASE_URL = 'https://image.tmdb.org/t/p';
+  const IMAGE_BASE_URL = "https://image.tmdb.org/t/p";
 
   return (
     <div className="modal-overlay">
       <div className="modal-backdrop" onClick={onClose} />
 
       <div className="modal">
-        <button onClick={onClose} className="modal-close">
-          <X size={24} />
+        <button className="modal-close" onClick={onClose}>
+          <X size={22} />
         </button>
 
+        {/* HERO */}
         <div className="modal-hero">
-          {movie.backdrop_path ? (
+          {movie.backdrop_path && (
             <img
               src={`${IMAGE_BASE_URL}/original${movie.backdrop_path}`}
               alt={movie.title}
               className="modal-hero-image"
             />
-          ) : (
-            <div className="modal-no-image">No Image Available</div>
           )}
 
-          <div className="modal-hero-overlay"></div>
+          <div className="modal-hero-overlay" />
 
-          <div className="modal-hero-controls">
-            <div className="controls-container">
-              <button className="play-btn">
-                <Play size={28} />
-              </button>
+          <div className="modal-hero-content">
+            <h2 className="modal-title">{movie.title}</h2>
 
-              <div className="action-buttons">
-                <button className="action-btn">
-                  <ThumbsUp size={20} />
-                </button>
-                <button className="action-btn">
-                  <Share2 size={20} />
-                </button>
-              </div>
+            <div className="modal-meta">
+              <span className="meta-pill">
+                {new Date(movie.release_date).getFullYear()}
+              </span>
 
-              <button
-                onClick={() => setIsMuted(!isMuted)}
-                className="volume-btn"
-              >
-                {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
-              </button>
+              <span className="modal-rating">
+                {movie.vote_average.toFixed(1)}
+              </span>
+
+              <span className="meta-pill">Movie</span>
             </div>
           </div>
         </div>
 
+        {/* CONTENT */}
         <div className="modal-content">
-          <div className="modal-header">
-            <h2 className="modal-title">{movie.title}</h2>
-            <div className="modal-meta">
-              <span className="meta-year">
-                {new Date(movie.release_date).getFullYear()}
-              </span>
-              <div className="modal-rating">
-                <span>{movie.vote_average.toFixed(1)}</span>
-              </div>
-              <span className="meta-type">Movie</span>
-            </div>
-          </div>
-
           <p className="modal-description">{movie.overview}</p>
 
           <div className="modal-details">
             <div className="details-grid">
-              <div className="detail-item">
+              <div>
                 <p className="detail-label">Rating</p>
-                <p className="detail-value">{movie.vote_average.toFixed(1)}/10</p>
+                <p className="detail-value">
+                  {movie.vote_average.toFixed(1)}/10
+                </p>
               </div>
-              <div className="detail-item">
+
+              <div>
                 <p className="detail-label">Release Date</p>
                 <p className="detail-value">
                   {new Date(movie.release_date).toLocaleDateString()}
                 </p>
               </div>
-              <div className="detail-item">
+
+              <div>
                 <p className="detail-label">Type</p>
                 <p className="detail-value">Movie</p>
               </div>
