@@ -82,25 +82,247 @@ export default function Dashboard() {
 
         // For dubbed movies, we need a different approach since TMDB doesn't have direct dubbed filter
         // We'll search for popular Indian movies that might have Telugu dubs
-        const fetchDubbedMovies = async () => {
-          try {
-            const response = await fetch(`${BASE_URL}/discover/movie?api_key=${API_KEY}&with_original_language=hi,ta,ml,kn&region=IN&sort_by=popularity.desc&page=1`);
-            const data = await response.json();
+        // const fetchDubbedMovies = async () => {
+        //   try {
+        //     const response = await fetch(`${BASE_URL}/discover/movie?api_key=${API_KEY}&with_original_language=hi,ta,ml,kn&region=IN&sort_by=popularity.desc&page=1`);
+        //     const data = await response.json();
             
-            // Get movies that are popular in India (likely have Telugu dubs)
-            return data.results?.slice(0, 10).map(movie => ({
-              ...movie,
-              // Add Telugu dubbed indicator to title for display
-              title: `${movie.title} (తెలుగు డబ్బింగ్)`
-            })) || [];
-          } catch (error) {
-            console.error('Error fetching dubbed movies:', error);
-            return [];
-          }
-        };
+        //     // Get movies that are popular in India (likely have Telugu dubs)
+        //     return data.results?.slice(0, 10).map(movie => ({
+        //       ...movie,
+        //       // Add Telugu dubbed indicator to title for display
+        //       title: `${movie.title} (తెలుగు డబ్బింగ్)`
+        //     })) || [];
+        //   } catch (error) {
+        //     console.error('Error fetching dubbed movies:', error);
+        //     return [];
+        //   }
+        // };
 
-        const dubbedData = await fetchDubbedMovies();
+      // Replace your fetchDubbedMovies function with this:
 
+const fetchDubbedMovies = async () => {
+  try {
+    console.log('Fetching dubbed movies...');
+    
+    // METHOD 1: Try different API endpoints
+    const endpoints = [
+      // Get popular Hindi movies (Bollywood - most likely to have Telugu dubs)
+      `${BASE_URL}/discover/movie?api_key=${API_KEY}&with_original_language=hi&sort_by=popularity.desc&page=1&region=IN`,
+      
+      // Get popular Tamil movies
+      `${BASE_URL}/discover/movie?api_key=${API_KEY}&with_original_language=ta&sort_by=popularity.desc&page=1&region=IN`,
+      
+      // Get trending movies in India
+      `${BASE_URL}/trending/movie/week?api_key=${API_KEY}&region=IN`,
+      
+      // Search for movies with "Telugu" keyword
+      `${BASE_URL}/search/movie?api_key=${API_KEY}&query=Telugu&page=1`,
+    ];
+
+    const responses = await Promise.all(endpoints.map(url => fetch(url)));
+    const data = await Promise.all(responses.map(res => res.json()));
+    
+    // console.log('API responses:', data);
+    
+    // Combine all results
+    const allMovies = [];
+    data.forEach((responseData, index) => {
+      if (responseData.results && Array.isArray(responseData.results)) {
+        allMovies.push(...responseData.results);
+      }
+    });
+    
+    // console.log('All movies fetched:', allMovies.length);
+    
+    if (allMovies.length === 0) {
+      // If API returns nothing, use hardcoded dubbed movies
+      console.log('No movies from API, using hardcoded dubbed movies');
+      return getHardcodedDubbedMovies();
+    }
+    
+    // Filter: Get non-Telugu movies (assuming they have Telugu dubs)
+    const nonTeluguMovies = allMovies.filter(movie => 
+      movie.original_language !== 'te' && movie.original_language
+    );
+    
+    // console.log('Non-Telugu movies:', nonTeluguMovies.length);
+    
+    // Remove duplicates by ID
+    const uniqueMovies = [];
+    const seenIds = new Set();
+    
+    nonTeluguMovies.forEach(movie => {
+      if (movie.id && !seenIds.has(movie.id)) {
+        seenIds.add(movie.id);
+        uniqueMovies.push(movie);
+      }
+    });
+    
+    // Take top 10 and add dubbed indicator
+    const dubbedMovies = uniqueMovies.slice(0, 10).map(movie => ({
+      ...movie,
+      title: `${movie.title} (తెలుగు డబ్బింగ్)`,
+      vote_average: movie.vote_average || 6.0, // Default rating if not available
+      backdrop_path: movie.backdrop_path || movie.poster_path, // Use poster as backup
+    }));
+    
+    // console.log('Processed dubbed movies:', dubbedMovies);
+    
+    // If we still don't have enough movies, add hardcoded ones
+    if (dubbedMovies.length < 5) {
+      const hardcoded = getHardcodedDubbedMovies();
+      // Add only new movies (by ID)
+      hardcoded.forEach(movie => {
+        if (!dubbedMovies.some(m => m.id === movie.id)) {
+          dubbedMovies.push(movie);
+        }
+      });
+    }
+    
+    return dubbedMovies.slice(0, 10);
+    
+  } catch (error) {
+    console.error('Error in fetchDubbedMovies:', error);
+    return getHardcodedDubbedMovies();
+  }
+};
+
+// Add this helper function outside fetchMovies but inside the component:
+const getHardcodedDubbedMovies = () => {
+  return [
+    { 
+      id: 101, 
+      title: 'జవాన్ (తెలుగు డబ్బింగ్)', 
+      original_language: 'hi', 
+      poster_path: '/jFt1gS4BGHlK8PqrAGFkQc6c8Vm.jpg', 
+      backdrop_path: '/4HodYYKEIsGOdinkGi2Ucz6X9i0.jpg', 
+      overview: 'A high-octane action thriller about a man driven by justice.', 
+      vote_average: 7.8, 
+      release_date: '2023-10-19' 
+    },
+    { 
+      id: 102, 
+      title: 'ఆనంద్ (తెలుగు డబ్బింగ్)', 
+      original_language: 'ta', 
+      poster_path: '/8cTvj5nLzJcHdQpY7pL7vW5o9hK.jpg', 
+      backdrop_path: '/6V7b9nQ3t7v8K0l8v5f9xLzX0oG.jpg', 
+      overview: 'A heartwarming Tamil drama now available in Telugu.', 
+      vote_average: 8.1, 
+      release_date: '2021-02-04' 
+    },
+    { 
+      id: 103, 
+      title: 'కాంతార (తెలుగు డబ్బింగ్)', 
+      original_language: 'kn', 
+      poster_path: '/d3pxNSoMp18jip8fBbOaC0I7C8L.jpg', 
+      backdrop_path: '/5V7b9nQ3t7v8K0l8v5f9xLzX0oG.jpg', 
+      overview: 'A mystical thriller about conflict between villagers and a greedy landlord.', 
+      vote_average: 8.4, 
+      release_date: '2022-09-30' 
+    },
+    { 
+      id: 104, 
+      title: 'పథాన్ (తెలుగు డబ్బింగ్)', 
+      original_language: 'hi', 
+      poster_path: '/1P3QtW1AQR2dQgxVpa9TJjW4Qt7.jpg', 
+      backdrop_path: '/7BgzBzF8mM799dJ9rLrJ8Tf0O9o.jpg', 
+      overview: 'An Indian RAW agent takes on a terrorist group.', 
+      vote_average: 6.8, 
+      release_date: '2023-01-25' 
+    },
+    { 
+      id: 105, 
+      title: 'విక్రం వేద (తెలుగు డబ్బింగ్)', 
+      original_language: 'ta', 
+      poster_path: '/9dKCU1Q6jQ6K9zq8N0eL5w3q5WJ.jpg', 
+      backdrop_path: '/6UcMqpkL1VZvjKqFgQjvE9sYQ8p.jpg', 
+      overview: 'A gangster drama about loyalty and betrayal.', 
+      vote_average: 8.3, 
+      release_date: '2022-06-03' 
+    },
+    { 
+      id: 106, 
+      title: 'భూల్ భూలయ్య (తెలుగు డబ్బింగ్)', 
+      original_language: 'hi', 
+      poster_path: '/9dKCU1Q6jQ6K9zq8N0eL5w3q5WJ.jpg', 
+      backdrop_path: '/5V7b9nQ3t7v8K0l8v5f9xLzX0oG.jpg', 
+      overview: 'A horror-comedy film now in Telugu dubbed version.', 
+      vote_average: 6.5, 
+      release_date: '2020-11-09' 
+    },
+    { 
+      id: 107, 
+      title: 'RRR (తెలుగు డబ్బింగ్)', 
+      original_language: 'te', 
+      poster_path: '/7BgzBzF8mM799dJ9rLrJ8Tf0O9o.jpg', 
+      backdrop_path: '/7BgzBzF8mM799dJ9rLrJ8Tf0O9o.jpg', 
+      overview: 'A fictional story about two Indian revolutionaries in this epic action drama.', 
+      vote_average: 7.8, 
+      release_date: '2022-03-25' 
+    },
+    { 
+      id: 108, 
+      title: 'భగవాన్ (తెలుగు డబ్బింగ్)', 
+      original_language: 'ta', 
+      poster_path: '/teCy1egGQa0y8ULJvlrDHQKnxBL.jpg', 
+      backdrop_path: '/6UcMqpkL1VZvjKqFgQjvE9sYQ8p.jpg', 
+      overview: 'A psychological thriller now available in Telugu dubbed version.', 
+      vote_average: 7.2, 
+      release_date: '2022-03-15' 
+    },
+    { 
+      id: 109, 
+      title: 'రాకెట్రీ (తెలుగు డబ్బింగ్)', 
+      original_language: 'hi', 
+      poster_path: '/aV8o4xRM8Bw3mHMPVW3Pmhq6N7u.jpg', 
+      backdrop_path: '/6qHJnE2h1G5dD2JvVJwY3w5cW8i.jpg', 
+      overview: 'A sports drama about cricket, now in Telugu dubbed version.', 
+      vote_average: 8.0, 
+      release_date: '2023-12-01' 
+    },
+    { 
+      id: 110, 
+      title: 'బాహుబలి (తెలుగు డబ్బింగ్)', 
+      original_language: 'te', 
+      poster_path: '/9c28Q4j94b2Hw57jvY4S4j2o8tT.jpg', 
+      backdrop_path: '/6HjVYr4a43IWp2D6q3c5bN5pF5u.jpg', 
+      overview: 'In ancient India, an adventurous and daring man becomes involved in a decades-old feud.', 
+      vote_average: 8.8, 
+      release_date: '2015-07-10' 
+    }
+  ];
+};
+        // const dubbedData = await fetchDubbedMovies();
+
+        let dubbedData = await fetchDubbedMovies();
+        // if (dubbedData.length === 0) {
+        //   dubbedData = [
+        //     { 
+        //       id: 6, 
+        //       title: 'జవాన్ (తెలుగు డబ్బింగ్)', 
+        //       original_language: 'hi', 
+        //       poster_path: '/jFt1gS4BGHlK8PqrAGFkQc6c8Vm.jpg', 
+        //       backdrop_path: '/4HodYYKEIsGOdinkGi2Ucz6X9i0.jpg', 
+        //       overview: 'A high-octane action thriller about a man driven by justice in this Telugu dubbed version.', 
+        //       vote_average: 7.8, 
+        //       release_date: '2023-10-19'
+        //     },
+        //     { 
+        //       id: 7, 
+        //       title: 'ఆనంద్ (తెలుగు డబ్బింగ్)',  
+        //       original_language: 'ta', 
+        //       poster_path: '/8cTvj5nLzJcHdQpY7pL7vW5o9hK.jpg', 
+        //       backdrop_path: '/6V7b9nQ3t7v8K0l8v5f9xLzX0oG.jpg', 
+        //       overview: 'A heartwarming Tamil drama now available in Telugu dubbed version.', 
+        //       vote_average: 8.1, 
+        //       release_date: '2021-02-04'
+        //     },
+        //   ];
+        // }
+
+//         console.log('Dubbed movies fetched:', dubbedData);
+// console.log('Dubbed movies count:', dubbedData.length);
         setTrending(trendingData);
         setPopular(popularData);
         setTopRated(topRatedData);
@@ -262,12 +484,12 @@ export default function Dashboard() {
       />
       
       <div className="movie-rows-container">
-        <MovieRow title="Trending Now" movies={trending} />
-        <MovieRow title="Dubbed Movies" movies={dubbedMovies} />
-        <MovieRow title="Popular on Platform" movies={popular} />
-        <MovieRow title="Top Rated Movies" movies={topRated} />
-        <MovieRow title="Coming Soon" movies={upcoming} />
-        <MovieRow title="Now Playing" movies={nowPlaying} />
+        <MovieRow title="Coming Soon" movies={upcoming} onMovieClick={setSelectedMovie} />
+        <MovieRow title="Now Playing" movies={nowPlaying} onMovieClick={setSelectedMovie} />
+        <MovieRow title="Trending Now" movies={trending} onMovieClick={setSelectedMovie} />
+        <MovieRow title="Dubbed Movies" movies={dubbedMovies} onMovieClick={setSelectedMovie} />
+        <MovieRow title="Popular" movies={popular} onMovieClick={setSelectedMovie} />
+        <MovieRow title="Top Rated Movies" movies={topRated} onMovieClick={setSelectedMovie} />
       </div>
 
       {selectedMovie && (
@@ -283,10 +505,14 @@ export default function Dashboard() {
 // Header Component
 function Header({ isMenuOpen, setIsMenuOpen }) {
   const navItems = [
-    { label: 'Movies', href: '#' },
-    { label: 'TV Shows', href: '#' },
-    { label: 'Sports', href: '#' },
-    { label: 'Premium', href: '#' },
+    { label: 'Comedy', href: '#' },
+    { label: 'Romance', href: '#' },
+    { label: 'Thriller', href: '#' },
+    { label: 'Horror', href: '#' },
+    { label: 'Action', href: '#' },
+    { label: 'Drama', href: '#' },
+    { label: 'Sci-Fi', href: '#' },
+    { label: 'Fantasy', href: '#' },
   ];
 
   return (
@@ -375,6 +601,11 @@ function HeroCarousel({ movies, selectedMovie, setSelectedMovie }) {
     setAutoplay(false);
   };
 
+  const getSafeRating = (rating) => {
+    if (typeof rating !== 'number' || isNaN(rating)) return '0.0';
+    return rating.toFixed(1);
+  };
+
   if (carouselMovies.length === 0) return null;
 
   const currentMovie = carouselMovies[currentIndex];
@@ -403,7 +634,7 @@ function HeroCarousel({ movies, selectedMovie, setSelectedMovie }) {
 
               <div className="carousel-meta">
                 <div className="rating-badge">
-                  <span>{currentMovie.vote_average.toFixed(1)}</span>
+                  <span>{getSafeRating(currentMovie.vote_average)}</span>
                 </div>
                 <span className="year">
                   {new Date(currentMovie.release_date).getFullYear()}
@@ -415,10 +646,10 @@ function HeroCarousel({ movies, selectedMovie, setSelectedMovie }) {
               </p>
 
               <div className="carousel-actions">
-                <button className="watch-now-btn">
+                {/* <button className="watch-now-btn">
                   <Play size={20} />
                   <span>Watch Now</span>
-                </button>
+                </button> */}
                 <button 
                   className="more-info-btn"
                   onClick={() => setSelectedMovie(currentMovie)}
@@ -429,13 +660,13 @@ function HeroCarousel({ movies, selectedMovie, setSelectedMovie }) {
             </div>
           </div>
 
-          <button onClick={goToPrevious} className="carousel-nav prev">
+          {/* <button onClick={goToPrevious} className="carousel-nav prev">
             <ChevronLeft size={24} />
           </button>
 
           <button onClick={goToNext} className="carousel-nav next">
             <ChevronRight size={24} />
-          </button>
+          </button> */}
         </div>
 
         <div className="carousel-indicators">
@@ -453,11 +684,14 @@ function HeroCarousel({ movies, selectedMovie, setSelectedMovie }) {
 }
 
 // Movie Card Component
-function MovieCard({ movie }) {
+function MovieCard({ movie, onClick }) {
   const IMAGE_BASE_URL = 'https://image.tmdb.org/t/p';
-
+  const getSafeRating = (rating) => {
+    if (typeof rating !== 'number' || isNaN(rating)) return '0.0';
+    return rating.toFixed(1);
+  };
   return (
-    <div className="movie-card">
+    <div className="movie-card" onClick={() => onClick(movie)}>
       <div className="movie-poster">
         {movie.poster_path ? (
           <img
@@ -472,7 +706,7 @@ function MovieCard({ movie }) {
 
         <div className="movie-rating">
           <Star size={12} />
-          <span>{movie.vote_average.toFixed(1)}</span>
+          <span>{getSafeRating(movie.vote_average)}</span>
         </div>
       </div>
 
@@ -487,11 +721,15 @@ function MovieCard({ movie }) {
 }
 
 // Dubbed Movie Card Component (with Telugu Dubbed badge)
-function DubbedMovieCard({ movie }) {
+function DubbedMovieCard({ movie, onClick }) {
   const IMAGE_BASE_URL = 'https://image.tmdb.org/t/p';
+  const getSafeRating = (rating) => {
+    if (typeof rating !== 'number' || isNaN(rating)) return '0.0';
+    return rating.toFixed(1);
+  };
 
   return (
-    <div className="movie-card dubbed">
+    <div className="movie-card dubbed" onClick={() => onClick(movie)}>
       <div className="movie-poster">
         {movie.poster_path ? (
           <img
@@ -505,11 +743,11 @@ function DubbedMovieCard({ movie }) {
         <div className="poster-overlay"></div>
         
         {/* Dubbed Badge */}
-        <div className="dubbed-badge">తెలుగు డబ్బింగ్</div>
+        <div className="dubbed-badge">Dubbed</div>
 
         <div className="movie-rating">
           <Star size={12} />
-          <span>{movie.vote_average?.toFixed(1) || 'N/A'}</span>
+          <span>{getSafeRating(movie.vote_average)}</span>
         </div>
       </div>
 
@@ -524,7 +762,7 @@ function DubbedMovieCard({ movie }) {
 }
 
 // Movie Row Component
-function MovieRow({ title, movies }) {
+function MovieRow({ title, movies, onMovieClick }) {
   const scrollContainerRef = useRef(null);
   const [showLeftArrow, setShowLeftArrow] = useState(false);
   const [showRightArrow, setShowRightArrow] = useState(true);
@@ -551,7 +789,16 @@ function MovieRow({ title, movies }) {
     }
   };
 
-  if (movies.length === 0) return null;
+  if (movies.length === 0){
+    return (
+    <div className="movie-row">
+      <h2 className="row-title">{title}</h2>
+      <div className="no-movies-message">
+        No movies available in this category
+      </div>
+    </div>
+  );
+  }
   const isDubbedRow = title.toLowerCase().includes('dubbed');
 
 
@@ -576,9 +823,9 @@ function MovieRow({ title, movies }) {
         >
           {movies.map((movie) => (
             isDubbedRow ? (
-              <DubbedMovieCard key={movie.id} movie={movie} />
+              <DubbedMovieCard key={movie.id} movie={movie} onClick={onMovieClick} />
             ) : (
-              <MovieCard key={movie.id} movie={movie} />
+              <MovieCard key={movie.id} movie={movie} onClick={onMovieClick} />
             )
           ))}
         </div>
@@ -597,86 +844,74 @@ function MovieRow({ title, movies }) {
 }
 
 // Movie Detail Modal Component
+
+
 function MovieDetailModal({ movie, onClose }) {
-  const [isMuted, setIsMuted] = useState(true);
-  const IMAGE_BASE_URL = 'https://image.tmdb.org/t/p';
+  const IMAGE_BASE_URL = "https://image.tmdb.org/t/p";
+  const getSafeRating = (rating) => {
+    if (typeof rating !== 'number' || isNaN(rating)) return '0.0';
+    return rating.toFixed(1);
+  };
 
   return (
     <div className="modal-overlay">
       <div className="modal-backdrop" onClick={onClose} />
 
       <div className="modal">
-        <button onClick={onClose} className="modal-close">
-          <X size={24} />
+        <button className="modal-close" onClick={onClose}>
+          <X size={22} />
         </button>
 
+        {/* HERO */}
         <div className="modal-hero">
-          {movie.backdrop_path ? (
+          {movie.backdrop_path && (
             <img
               src={`${IMAGE_BASE_URL}/original${movie.backdrop_path}`}
               alt={movie.title}
               className="modal-hero-image"
             />
-          ) : (
-            <div className="modal-no-image">No Image Available</div>
           )}
 
-          <div className="modal-hero-overlay"></div>
+          <div className="modal-hero-overlay" />
 
-          <div className="modal-hero-controls">
-            <div className="controls-container">
-              <button className="play-btn">
-                <Play size={28} />
-              </button>
+          <div className="modal-hero-content">
+            <h2 className="modal-title">{movie.title}</h2>
 
-              <div className="action-buttons">
-                <button className="action-btn">
-                  <ThumbsUp size={20} />
-                </button>
-                <button className="action-btn">
-                  <Share2 size={20} />
-                </button>
-              </div>
+            <div className="modal-meta">
+              <span className="meta-pill">
+                {new Date(movie.release_date).getFullYear()}
+              </span>
 
-              <button
-                onClick={() => setIsMuted(!isMuted)}
-                className="volume-btn"
-              >
-                {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
-              </button>
+              <span className="modal-rating">
+                {getSafeRating(movie.vote_average)}
+              </span>
+
+              <span className="meta-pill">Movie</span>
             </div>
           </div>
         </div>
 
+        {/* CONTENT */}
         <div className="modal-content">
-          <div className="modal-header">
-            <h2 className="modal-title">{movie.title}</h2>
-            <div className="modal-meta">
-              <span className="meta-year">
-                {new Date(movie.release_date).getFullYear()}
-              </span>
-              <div className="modal-rating">
-                <span>{movie.vote_average.toFixed(1)}</span>
-              </div>
-              <span className="meta-type">Movie</span>
-            </div>
-          </div>
-
           <p className="modal-description">{movie.overview}</p>
 
           <div className="modal-details">
             <div className="details-grid">
-              <div className="detail-item">
+              <div>
                 <p className="detail-label">Rating</p>
-                <p className="detail-value">{movie.vote_average.toFixed(1)}/10</p>
+                <p className="detail-value">
+                  {movie.vote_average.toFixed(1)}/10
+                </p>
               </div>
-              <div className="detail-item">
+
+              <div>
                 <p className="detail-label">Release Date</p>
                 <p className="detail-value">
                   {new Date(movie.release_date).toLocaleDateString()}
                 </p>
               </div>
-              <div className="detail-item">
+
+              <div>
                 <p className="detail-label">Type</p>
                 <p className="detail-value">Movie</p>
               </div>

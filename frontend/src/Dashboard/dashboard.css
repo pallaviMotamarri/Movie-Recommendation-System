@@ -43,14 +43,14 @@ body {
 
 /* Header Styles */
 .header {
-  position: fixed;
+  position: absolute;
   top: 0;
   left: 0;
   right: 0;
   z-index: 1000;
-  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.8), transparent);
+  /* background: linear-gradient(to bottom, rgba(0, 0, 0, 0.8), transparent);
   backdrop-filter: blur(10px);
-   -webkit-backdrop-filter: blur(10px);
+   -webkit-backdrop-filter: blur(10px); */
 }
 
 .header-container {
@@ -204,7 +204,7 @@ brand-text {
 /* Hero Carousel */
 .hero-carousel {
   position: relative;
-  padding-top: 80px;
+  /* padding-top: 80px; */
 }
 
 .carousel-container {
@@ -222,7 +222,7 @@ brand-text {
 
 @media (min-width: 1024px) {
   .carousel-container {
-    height: 70vh;
+    height: 90vh;
   }
 }
 
@@ -627,9 +627,16 @@ brand-text {
   font-weight: 700;
 }
 
+.no-movies-message {
+  color: #9ca3af;
+  font-size: 16px;
+  padding: 0 16px;
+  margin-top: 8px;
+}
+
 /* Updated MovieCard component to show dubbed badge */
 .movie-card.dubbed .movie-poster::after {
-  content: 'తెలుగు డబ్బింగ్';
+  content: 'Dubbed';
   position: absolute;
   top: 10px;
   right: 10px;
@@ -656,57 +663,59 @@ brand-text {
 }
 
 /* Modal Styles */
+/* Modal Styles */
+
+/* ---------------- Movie Modal ---------------- */
 .modal-overlay {
   position: fixed;
   inset: 0;
-  z-index: 2000;
+  z-index: 999;
   display: flex;
-  align-items: center;
   justify-content: center;
-  padding: 16px;
+  align-items: center;
+  overflow-y: auto;
+  background-color: rgba(0, 0, 0, 0.85);
 }
 
 .modal-backdrop {
   position: absolute;
   inset: 0;
-  background-color: rgba(0, 0, 0, 0.8);
-  backdrop-filter: blur(10px);
-   -webkit-backdrop-filter: blur(10px);
 }
 
 .modal {
   position: relative;
-  background-color: #000;
-  border-radius: 16px;
+  width: 42%;
+  max-width: 900px;
+  margin: 40px 0;
+  background: #111;
+  border-radius: 6px;
   overflow: hidden;
-  width: 100%;
-  max-width: 640px;
-  max-height: 90vh;
-  overflow-y: auto;
 }
+
+/* ---------- CLOSE ---------- */
 
 .modal-close {
   position: absolute;
-  top: 16px;
-  right: 16px;
-  z-index: 10;
-  background-color: rgba(0, 0, 0, 0.7);
-  color: white;
+  top: 14px;
+  right: 14px;
+  background: rgba(0, 0, 0, 0.6);
   border: none;
-  padding: 8px;
   border-radius: 50%;
+  padding: 8px;
+  color: #fff;
   cursor: pointer;
-  transition: background-color 0.3s;
+  z-index: 10;
 }
 
 .modal-close:hover {
-  background-color: #000;
+  background: rgba(255, 255, 255, 0.2);
 }
+
+/* ---------- HERO ---------- */
 
 .modal-hero {
   position: relative;
-  aspect-ratio: 16/9;
-  background-color: #111827;
+  height: 320px;
 }
 
 .modal-hero-image {
@@ -715,233 +724,94 @@ brand-text {
   object-fit: cover;
 }
 
-.modal-no-image {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #6b7280;
-}
-
 .modal-hero-overlay {
   position: absolute;
   inset: 0;
-  background: linear-gradient(to top, #000, transparent);
+  background: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.2),
+    rgba(0, 0, 0, 0.85)
+  );
 }
 
-.modal-hero-controls {
+/* ---------- HERO CONTENT ---------- */
+
+.modal-hero-content {
   position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  padding: 16px;
-}
-
-.controls-container {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.play-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 56px;
-  height: 56px;
-  background-color: white;
-  color: black;
-  border: none;
-  border-radius: 50%;
-  cursor: pointer;
-  transition: background-color 0.3s;
-}
-
-.play-btn:hover {
-  background-color: #e5e7eb;
-}
-
-.action-buttons {
-  display: flex;
-  gap: 8px;
-}
-
-.action-btn {
-  width: 48px;
-  height: 48px;
-  background-color: rgba(255, 255, 255, 0.2);
-  backdrop-filter: blur(10px);
-   -webkit-backdrop-filter: blur(10px);
-  color: white;
-  border: none;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: background-color 0.3s;
-}
-
-.action-btn:hover {
-  background-color: rgba(255, 255, 255, 0.3);
-}
-
-.volume-btn {
-  margin-left: auto;
-  width: 48px;
-  height: 48px;
-  background-color: rgba(255, 255, 255, 0.2);
-  backdrop-filter: blur(10px);
-   -webkit-backdrop-filter: blur(10px);
-  color: white;
-  border: none;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: background-color 0.3s;
-}
-
-.volume-btn:hover {
-  background-color: rgba(255, 255, 255, 0.3);
-}
-
-.modal-content {
-  padding: 24px;
-}
-
-.modal-header {
-  margin-bottom: 16px;
+  bottom: 24px;
+  left: 24px;
+  right: 24px;
 }
 
 .modal-title {
-  font-size: 24px;
-  font-weight: bold;
-  color: white;
-  margin-bottom: 12px;
+  font-size: 32px;
+  font-weight: 800;
+  margin-bottom: 10px;
 }
 
 .modal-meta {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
   gap: 12px;
   font-size: 14px;
-}
-
-.meta-year {
-  background-color: #374151;
-  color: white;
-  padding: 4px 12px;
-  border-radius: 4px;
+  color: #ddd;
 }
 
 .modal-rating {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  background-color: #fbbf24;
-  color: black;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-weight: 600;
+  background: #f5c518;
+  color: #000;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 6px;
 }
 
-.meta-type {
-  color: #9ca3af;
+.meta-pill {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* ---------- CONTENT ---------- */
+
+.modal-content {
+  padding: 20px 24px 24px;
 }
 
 .modal-description {
-  color: #d1d5db;
-  font-size: 16px;
-  line-height: 1.5;
-  margin-bottom: 24px;
+  font-size: 15px;
+  line-height: 1.6;
+  color: #ddd;
+  margin-bottom: 20px;
 }
 
+/* ---------- DETAILS ---------- */
+
 .modal-details {
-  padding-top: 24px;
-  border-top: 1px solid #374151;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+  padding: 14px;
 }
 
 .details-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 24px;
-}
-
-@media (min-width: 640px) {
-  .details-grid {
-    grid-template-columns: repeat(3, 1fr);
-  }
-}
-
-.detail-item {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
 }
 
 .detail-label {
-  color: #6b7280;
-  font-size: 14px;
+  font-size: 11px;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 1px;
 }
 
 .detail-value {
-  color: white;
-  font-size: 16px;
-  font-weight: 600;
+  font-size: 15px;
+  font-weight: 700;
 }
 
-/* Responsive Design */
-@media (max-width: 640px) {
-  .header-content {
-    height: 56px;
-  }
-  
-  .logo {
-    font-size: 20px;
-  }
-  
-  .carousel-title {
-    font-size: 32px;
-  }
-  
-  .carousel-description {
-    font-size: 14px;
-  }
-  
-  .movie-card {
-    width: 140px;
-  }
-  
-  .modal-content {
-    padding: 16px;
-  }
-  
-  .modal-title {
-    font-size: 20px;
-  }
-}
 
-/* Scrollbar styling for modal */
-.modal::-webkit-scrollbar {
-  width: 8px;
-}
 
-.modal::-webkit-scrollbar-track {
-  background: #1f2937;
-}
-
-.modal::-webkit-scrollbar-thumb {
-  background: #4b5563;
-  border-radius: 4px;
-}
-
-.modal::-webkit-scrollbar-thumb:hover {
-  background: #6b7280;
-}
 
 
 /* DEBUG: Force mobile menu to be visible */
