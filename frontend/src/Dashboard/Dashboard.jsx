@@ -162,7 +162,7 @@ const fetchDubbedMovies = async () => {
     // Take top 10 and add dubbed indicator
     const dubbedMovies = uniqueMovies.slice(0, 10).map(movie => ({
       ...movie,
-      title: `${movie.title} (తెలుగు డబ్బింగ్)`,
+      title: `${movie.title}`,
       vote_average: movie.vote_average || 6.0, // Default rating if not available
       backdrop_path: movie.backdrop_path || movie.poster_path, // Use poster as backup
     }));
@@ -713,7 +713,7 @@ function MovieCard({ movie, onClick }) {
       <div className="movie-info">
         <h3 className="movie-title">{movie.title}</h3>
         <p className="movie-year">
-          {new Date(movie.release_date).getFullYear()}
+          {movie.release_date ? new Date(movie.release_date).getFullYear() : 'N/A'}
         </p>
       </div>
     </div>
@@ -727,6 +727,22 @@ function DubbedMovieCard({ movie, onClick }) {
     if (typeof rating !== 'number' || isNaN(rating)) return '0.0';
     return rating.toFixed(1);
   };
+  const formatDate = (dateString) => {
+  if (!dateString) return 'N/A';
+  
+  try {
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return 'N/A';
+    
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    
+    return `${day}-${month}-${year}`;
+  } catch (error) {
+    return 'N/A';
+  }
+};
 
   return (
     <div className="movie-card dubbed" onClick={() => onClick(movie)}>
@@ -754,7 +770,7 @@ function DubbedMovieCard({ movie, onClick }) {
       <div className="movie-info">
         <h3 className="movie-title">{movie.title}</h3>
         <p className="movie-year">
-          {movie.release_date ? new Date(movie.release_date).getFullYear() : 'N/A'}
+          {movie.release_date ? new Date(movie.release_date).getFullYear(): 'N/A'}
         </p>
       </div>
     </div>
@@ -852,6 +868,22 @@ function MovieDetailModal({ movie, onClose }) {
     if (typeof rating !== 'number' || isNaN(rating)) return '0.0';
     return rating.toFixed(1);
   };
+  const formatDate = (dateString) => {
+  if (!dateString) return 'N/A';
+  
+  try {
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return 'N/A';
+    
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    
+    return `${day}-${month}-${year}`;
+  } catch (error) {
+    return 'N/A';
+  }
+};
 
   return (
     <div className="modal-overlay">
@@ -879,7 +911,7 @@ function MovieDetailModal({ movie, onClose }) {
 
             <div className="modal-meta">
               <span className="meta-pill">
-                {new Date(movie.release_date).getFullYear()}
+                {formatDate(movie.release_date)}
               </span>
 
               <span className="modal-rating">
@@ -907,7 +939,7 @@ function MovieDetailModal({ movie, onClose }) {
               <div>
                 <p className="detail-label">Release Date</p>
                 <p className="detail-value">
-                  {new Date(movie.release_date).toLocaleDateString()}
+                  {formatDate(movie.release_date)}
                 </p>
               </div>
 
