@@ -165,7 +165,7 @@ brand-text {
   backdrop-filter: blur(10px);
    -webkit-backdrop-filter: blur(10px);
   border-top: 1px solid rgba(255, 255, 255, 0.1);
-  padding: 16px 0;
+  padding: 5px 0;
   animation: slideDown 0.3s ease-out;
 }
 
@@ -183,23 +183,45 @@ brand-text {
 .mobile-nav-items {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 1px;
+  width: 200px;
 }
 
 .mobile-nav-item {
-  display: block;
-  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 10px;
   color: white;
   text-decoration: none;
   font-size: 18px;
-  font-weight: 500;
-  border-radius: 8px;
-  transition: background-color 0.3s;
+  font-family: 'Cinzel', serif;
+  font-weight: 600;
+  border-radius: 10px;
+  transition: background 0.25s ease, transform 0.15s ease, box-shadow 0.25s ease;
+  background: linear-gradient(90deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+  border: 1px solid rgba(255,255,255,0.06);
+  box-shadow: 0 6px 18px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.02);
 }
 
 .mobile-nav-item:hover {
-  background-color: rgba(255, 255, 255, 0.1);
+  transform: translateY(-3px);
+  background: linear-gradient(90deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
+  box-shadow: 0 12px 30px rgba(0,0,0,0.6);
 }
+
+.mobile-nav-item:active {
+  transform: translateY(0);
+}
+
+.mobile-nav-item::after {
+  margin-left: 12px;
+  opacity: 0.7;
+  font-size: 14px;
+}
+
+/* Slight label left alignment if children exist */
+.mobile-nav-item > * { flex: 1 1 auto; }
 
 /* Hero Carousel */
 .hero-carousel {
@@ -634,6 +656,52 @@ brand-text {
   margin-top: 8px;
 }
 
+/* Genre controls shown under the carousel, right-aligned */
+.genre-controls {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.go-back-btn {
+  background: transparent;
+  color: white;
+  border: 1px solid white;
+  padding: 10px 30px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.go-back-btn:hover {
+  background: rgba(255,255,255,0.06);
+}
+
+.genre-logo-title {
+  font-family: 'Cinzel', serif;
+  font-weight: 900;
+  font-size: 35px;
+  color: white;
+  line-height: 1;
+  margin-bottom: 8px;
+}
+
+/* Reduce gap between carousel and genre title in GenreView */
+.genre-view .carousel-container {
+  margin-bottom: 10px;
+}
+
+/* When genre is active, reduce the negative pull-up so rows sit closer to carousel */
+.movie-rows-container.genre-active {
+  margin-top: -48px;
+}
+
+/* Extra-tighten for the carousel inside genre view if still needed */
+.genre-view .hero-carousel .carousel-container {
+  margin-bottom: 8px !important;
+}
+
 /* Updated MovieCard component to show dubbed badge */
 .movie-card.dubbed .movie-poster::after {
   content: 'Dubbed';
@@ -836,6 +904,14 @@ brand-text {
 
 .provider-item span {
   display: inline-block;
+}
+
+/* Genre grid for selected-genre results */
+.genre-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 16px;
+  align-items: start;
 }
 
 .detail-label {

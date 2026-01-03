@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef, StrictMode } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { createRoot } from 'react-dom/client';
 import { Search, User, Menu, X, ChevronLeft, ChevronRight, Play, Star, Share2, ThumbsUp, Volume2, VolumeX } from 'lucide-react';
 import './dashboard.css';
 
 // Main App Component
 export default function Dashboard() {
+  const navigate = useNavigate();
   const [trending, setTrending] = useState([]);
   const [popular, setPopular] = useState([]);
   const [topRated, setTopRated] = useState([]);
@@ -15,6 +17,9 @@ export default function Dashboard() {
   const [selectedMovie, setSelectedMovie] = useState(null);
   const [dubbedMovies, setDubbedMovies] = useState([]);
   const [genres, setGenres] = useState({});
+  const [activeGenre, setActiveGenre] = useState(null);
+  const [genreMovies, setGenreMovies] = useState([]);
+  const [genreLoading, setGenreLoading] = useState(false);
 
 
   useEffect(() => {
@@ -516,6 +521,139 @@ const getHardcodedDubbedMovies = () => {
     fetchMovies();
   }, []);
 
+  // When a genre is selected from the menu, fetch movies for that genre
+  useEffect(() => {
+    if (!activeGenre) return;
+    let cancelled = false;
+
+    const fetchGenreMovies = async () => {
+      try {
+        setGenreLoading(true);
+        const API_KEY = import.meta.env.VITE_TMDB_API_KEY;
+        const BASE_URL = 'https://api.themoviedb.org/3';
+
+        // Map UI labels to TMDB genre names when they differ
+        const nameMap = {
+          'Sci-Fi': 'Science Fiction'
+        };
+        const desiredName = nameMap[activeGenre] || activeGenre;
+
+        // helper to slugify names for fuzzy matching
+        const slugify = (s = '') => s.toString().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+
+        // Ensure we have genres; fetch if missing
+        if (!genres || Object.keys(genres).length === 0) {
+          try {
+            const gRes = await fetch(`${BASE_URL}/genre/movie/list?api_key=${API_KEY}&language=en`);
+            const gData = await gRes.json();
+            const genreMap = {};
+            gData.genres?.forEach(g => { genreMap[g.id] = g.name; });
+            setGenres(genreMap);
+          } catch (e) {
+            console.warn('Could not fetch genres fallback:', e);
+          }
+        }
+
+        // try exact match first, then slug/fuzzy match
+        // Use a local copy of genres so that freshly-fetched genres are used immediately
+        let localGenres = genres && Object.keys(genres).length > 0 ? genres : {};
+        if (!localGenres || Object.keys(localGenres).length === 0) {
+          try {
+            const gRes = await fetch(`${BASE_URL}/genre/movie/list?api_key=${API_KEY}&language=en`);
+            const gData = await gRes.json();
+            const fetched = {};
+            gData.genres?.forEach(g => { fetched[g.id] = g.name; });
+            localGenres = fetched;
+            setGenres(fetched);
+          } catch (e) {
+            console.warn('Could not fetch genres fallback:', e);
+          }
+        }
+
+        let genreId = Object.keys(localGenres).find(id => localGenres[id] && localGenres[id].toLowerCase() === desiredName.toLowerCase());
+        if (!genreId) {
+          genreId = Object.keys(localGenres).find(id => slugify(localGenres[id]) === slugify(desiredName));
+        }
+
+        let collected = [];
+        let page = 1;
+        // Request only original Telugu movies from TMDB for the selected genre
+        if (genreId) {
+          while (collected.length < 60 && page <= 5) {
+            const res = await fetch(`${BASE_URL}/discover/movie?api_key=${API_KEY}&with_genres=${genreId}&with_original_language=te&page=${page}&sort_by=popularity.desc`);
+            const data = await res.json();
+            if (!data.results || data.results.length === 0) break;
+            collected.push(...data.results);
+            page += 1;
+          }
+        } else {
+          // Fallback: search movies by genre name + 'Telugu'
+          const q = encodeURIComponent(`${desiredName} Telugu`);
+          const sRes = await fetch(`${BASE_URL}/search/movie?api_key=${API_KEY}&query=${q}&page=1`);
+          const sData = await sRes.json();
+          if (sData.results && sData.results.length > 0) collected.push(...sData.results);
+        }
+
+        // collected should already be Telugu originals; as a safety filter, ensure original_language === 'te'
+        const teluguOnly = collected.filter(m => m && m.original_language === 'te');
+        const finalList = teluguOnly.length > 0 ? teluguOnly : collected;
+
+        if (!cancelled) setGenreMovies(finalList.slice(0, Math.min(60, finalList.length)));
+      } catch (err) {
+        console.error('Error fetching genre movies:', err);
+        if (!cancelled) setGenreMovies([]);
+      } finally {
+        if (!cancelled) setGenreLoading(false);
+      }
+    };
+
+    fetchGenreMovies();
+
+    return () => { cancelled = true; };
+  }, [activeGenre, genres]);
+
+  function GenreView({ genre, movies, loading, onMovieClick, onClear }) {
+    return (
+      <div className="genre-view">
+        <div className="genre-header" style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 16px'}}>
+          <h2 className="row-title">{genre}</h2>
+          <div>
+            <button className="more-info-btn" onClick={onClear}>Show All</button>
+          </div>
+        </div>
+
+        {loading ? (
+          <div style={{padding: 16, textAlign: 'center', marginTop: 100}}>Loading {genre} movies...</div>
+        ) : (
+          <>
+            <HeroCarousel movies={movies.slice(0, 7)} selectedMovie={null} setSelectedMovie={onMovieClick} />
+
+            <div style={{padding: '4px 16px 0 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+              <div className="genre-logo-title">{genre}</div>
+              <div className="genre-controls">
+                <button
+                  type="button"
+                  className="go-back-btn"
+                  onClick={() => { if (typeof onClear === 'function') onClear(); navigate('/dashboard'); }}
+                >
+                  Go Back
+                </button>
+              </div>
+            </div>
+
+            <div className="genre-grid" style={{padding: '16px'}}>
+              {movies.map(movie => (
+                <div key={movie.id} style={{marginBottom: 12}}>
+                  <MovieCard movie={movie} onClick={onMovieClick} />
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+    );
+  }
+
   // useEffect(() => {
   //   const API_KEY = import.meta.env.VITE_TMDB_API_KEY; // Replace with your TMDB API key
   //   const BASE_URL = 'https://api.themoviedb.org/3';
@@ -558,22 +696,40 @@ const getHardcodedDubbedMovies = () => {
 
   return (
     <div className="app">
-      <Header isMenuOpen={isMenuOpen} setIsMenuOpen={setIsMenuOpen} />
-      <HeroCarousel 
-        movies={nowPlaying} 
-        selectedMovie={selectedMovie} 
-        setSelectedMovie={setSelectedMovie}
-      />
+      <Header isMenuOpen={isMenuOpen} setIsMenuOpen={setIsMenuOpen} onSelectGenre={(label) => {
+        const slug = label.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9\-]/g, '');
+        setActiveGenre(label);
+        navigate(`/dashboard#${slug}`);
+      }} />
+      {!activeGenre && (
+        <HeroCarousel 
+          movies={popular} 
+          selectedMovie={selectedMovie} 
+          setSelectedMovie={setSelectedMovie}
+        />
+      )}
       
-      <div className="movie-rows-container">
-        <MovieRow title="Coming Soon" movies={upcoming} onMovieClick={setSelectedMovie} />
-        <MovieRow title="Now Playing" movies={nowPlaying} onMovieClick={setSelectedMovie} />
-        <MovieRow title="Trending Now" movies={trending} onMovieClick={setSelectedMovie} />
-        <MovieRow title="Dubbed Movies" movies={dubbedMovies} onMovieClick={setSelectedMovie} />
-        <MovieRow title="Popular" movies={popular} onMovieClick={setSelectedMovie} />
-        <MovieRow title="Top Rated Movies" movies={topRated} onMovieClick={setSelectedMovie} />
-      </div>
+      <div className={`movie-rows-container ${activeGenre ? 'genre-active' : ''}`}>
+        {activeGenre ? (
+          <GenreView
+            genre={activeGenre}
+            movies={genreMovies}
+            loading={genreLoading}
+            onMovieClick={setSelectedMovie}
+            onClear={() => setActiveGenre(null)}
+          />
+        ) : (
+        <>
+          <MovieRow title="Coming Soon" movies={upcoming} onMovieClick={setSelectedMovie} />
+          <MovieRow title="Now Playing" movies={nowPlaying} onMovieClick={setSelectedMovie} />
+          <MovieRow title="Trending Now" movies={trending} onMovieClick={setSelectedMovie} />
+          <MovieRow title="Dubbed Movies" movies={dubbedMovies} onMovieClick={setSelectedMovie} />
+          <MovieRow title="Popular" movies={popular} onMovieClick={setSelectedMovie} />
+          <MovieRow title="Top Rated Movies" movies={topRated} onMovieClick={setSelectedMovie} />
+        </>
+        )}
 
+      </div>
       {selectedMovie && (
         <MovieDetailModal 
           movie={selectedMovie} 
@@ -586,16 +742,16 @@ const getHardcodedDubbedMovies = () => {
 }
 
 // Header Component
-function Header({ isMenuOpen, setIsMenuOpen }) {
+function Header({ isMenuOpen, setIsMenuOpen, onSelectGenre }) {
   const navItems = [
-    { label: 'Comedy', href: '#' },
-    { label: 'Romance', href: '#' },
-    { label: 'Thriller', href: '#' },
-    { label: 'Horror', href: '#' },
-    { label: 'Action', href: '#' },
-    { label: 'Drama', href: '#' },
-    { label: 'Sci-Fi', href: '#' },
-    { label: 'Fantasy', href: '#' },
+    { label: 'Comedy', href: '/genre/comedy' },
+    { label: 'Romance', href: '/genre/romance' },
+    { label: 'Thriller', href: '/genre/thriller' },
+    { label: 'Horror', href: '/genre/horror' },
+    { label: 'Action', href: '/genre/action' },
+    { label: 'Drama', href: '/genre/drama' },
+    { label: 'Sci-Fi', href: '/genre/sci-fi' },
+    { label: 'Fantasy', href: '/genre/fantasy' },
   ];
 
   return (
@@ -634,14 +790,14 @@ function Header({ isMenuOpen, setIsMenuOpen }) {
           <nav className="mobile-nav">
             <div className="mobile-nav-items">
               {navItems.map((item) => (
-                <a
+                <button
                   key={item.label}
-                  href={item.href}
+                  type="button"
                   className="mobile-nav-item"
-                  onClick={() => setIsMenuOpen(false)}
+                  onClick={() => { if (typeof onSelectGenre === 'function') onSelectGenre(item.label); setIsMenuOpen(false); }}
                 >
                   {item.label}
-                </a>
+                </button>
               ))}
             </div>
           </nav>
@@ -1112,3 +1268,4 @@ function MovieDetailModal({ movie, onClose, genres }) {
       </div>
     );
 }
+
