@@ -20,6 +20,9 @@ export default function Dashboard() {
   const [activeGenre, setActiveGenre] = useState(null);
   const [genreMovies, setGenreMovies] = useState([]);
   const [genreLoading, setGenreLoading] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchMode, setSearchMode] = useState(false); // when true, genre effect should not auto-run
 
 
   useEffect(() => {
@@ -524,6 +527,7 @@ const getHardcodedDubbedMovies = () => {
   // When a genre is selected from the menu, fetch movies for that genre
   useEffect(() => {
     if (!activeGenre) return;
+    if (searchMode) return; // when showing direct search results, skip genre auto-fetch
     let cancelled = false;
 
     const fetchGenreMovies = async () => {
@@ -696,11 +700,72 @@ const getHardcodedDubbedMovies = () => {
 
   return (
     <div className="app">
-      <Header isMenuOpen={isMenuOpen} setIsMenuOpen={setIsMenuOpen} onSelectGenre={(label) => {
-        const slug = label.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9\-]/g, '');
-        setActiveGenre(label);
-        navigate(`/dashboard#${slug}`);
-      }} />
+      <Header
+        isMenuOpen={isMenuOpen}
+        setIsMenuOpen={setIsMenuOpen}
+        onSelectGenre={(label) => {
+          const slug = label.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9\-]/g, '');
+          setSearchMode(false);
+          setActiveGenre(label);
+          navigate(`/dashboard#${slug}`);
+        }}
+        searchOpen={searchOpen}
+        setSearchOpen={setSearchOpen}
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        onSearchSubmit={async (q) => {
+          // perform search: try genre, then person (actor), then movie search
+          const API_KEY = import.meta.env.VITE_TMDB_API_KEY;
+          const BASE_URL = 'https://api.themoviedb.org/3';
+          const slugify = (s = '') => s.toString().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+
+          if (!q || q.trim().length === 0) return;
+          setSearchMode(true);
+          setGenreLoading(true);
+          setActiveGenre(`Search: ${q}`);
+
+          // 1) Genre match
+          const qSlug = slugify(q);
+          const matchedGenreId = Object.keys(genres || {}).find(id => slugify(genres[id]) === qSlug || genres[id]?.toLowerCase() === q.toLowerCase());
+          if (matchedGenreId) {
+            // fetch discover by genre limited to Telugu
+            const res = await fetch(`${BASE_URL}/discover/movie?api_key=${API_KEY}&with_genres=${matchedGenreId}&with_original_language=te&page=1&sort_by=popularity.desc`);
+            const data = await res.json();
+            setGenreMovies((data.results || []).slice(0, 60));
+            setGenreLoading(false);
+            return;
+          }
+
+          // 2) Person (actor) search
+          try {
+            const pRes = await fetch(`${BASE_URL}/search/person?api_key=${API_KEY}&query=${encodeURIComponent(q)}&page=1`);
+            const pData = await pRes.json();
+            if (pData.results && pData.results.length > 0) {
+              const person = pData.results[0];
+              const creditsRes = await fetch(`${BASE_URL}/person/${person.id}/movie_credits?api_key=${API_KEY}`);
+              const creditsData = await creditsRes.json();
+              const movies = (creditsData.cast || []).sort((a,b) => (b.popularity||0) - (a.popularity||0));
+              setGenreMovies(movies.slice(0,60));
+              setGenreLoading(false);
+              return;
+            }
+          } catch (e) {
+            console.warn('person search failed', e);
+          }
+
+          // 3) fallback: search movies
+          try {
+            const mRes = await fetch(`${BASE_URL}/search/movie?api_key=${API_KEY}&query=${encodeURIComponent(q)}&page=1`);
+            const mData = await mRes.json();
+            setGenreMovies((mData.results || []).slice(0,60));
+          } catch (e) {
+            console.error('movie search failed', e);
+            setGenreMovies([]);
+          } finally {
+            setGenreLoading(false);
+          }
+        }}
+      />
       {!activeGenre && (
         <HeroCarousel 
           movies={popular} 
@@ -742,7 +807,7 @@ const getHardcodedDubbedMovies = () => {
 }
 
 // Header Component
-function Header({ isMenuOpen, setIsMenuOpen, onSelectGenre }) {
+function Header({ isMenuOpen, setIsMenuOpen, onSelectGenre, searchOpen, setSearchOpen, searchQuery, setSearchQuery, onSearchSubmit }) {
   const navItems = [
     { label: 'Comedy', href: '/genre/comedy' },
     { label: 'Romance', href: '/genre/romance' },
@@ -776,9 +841,27 @@ function Header({ isMenuOpen, setIsMenuOpen, onSelectGenre }) {
           </div>
 
           <div className="header-right">
-            <button className="search-btn">
-              <Search size={20} />
-            </button>
+            {searchOpen ? (
+              <div className="search-box">
+                <input
+                  className="search-input"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search genre, actor or movie"
+                />
+                <button
+                  className="search-submit"
+                  onClick={() => { if (typeof onSearchSubmit === 'function') onSearchSubmit(searchQuery); setSearchOpen(false); }}
+                >
+                  Search
+                </button>
+                <button className="search-close" onClick={() => setSearchOpen(false)}>X</button>
+              </div>
+            ) : (
+              <button className="search-btn" onClick={() => setSearchOpen(true)}>
+                <Search size={20} />
+              </button>
+            )}
             {/* <button className="subscribe-btn">
               <User size={18} />
               <span>Subscribe</span>

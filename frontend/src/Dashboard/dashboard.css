@@ -122,7 +122,7 @@ brand-text {
 
 .search-btn {
   color: white;
-  background: none;
+  background: black;
   border: none;
   padding: 8px;
   cursor: pointer;
@@ -132,6 +132,43 @@ brand-text {
 
 .search-btn:hover {
   background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Search box in header */
+.search-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background-color: black;
+  padding: 4px 8px;
+  border-color: white;
+  border-radius: 8px;
+}
+
+.search-input {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.06);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 8px;
+  width: 220px;
+}
+
+.search-submit {
+  background: black;
+  color: white;
+  border: 1px solid white;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.search-close {
+  background: transparent;
+  color: white;
+  border: none;
+  padding: 6px;
+  cursor: pointer;
 }
 
 /* .subscribe-btn {
