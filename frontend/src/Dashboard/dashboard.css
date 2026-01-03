@@ -798,6 +798,46 @@ brand-text {
   gap: 16px;
 }
 
+/* Provider sections inside the movie detail modal */
+.modal-providers {
+  margin-top: 18px;
+}
+
+.providers-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.providers-section h4 {
+  margin: 0 0 8px 0;
+  font-size: 14px;
+  color: #eee;
+}
+
+.provider-list {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.provider-item {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  border: 1px solid rgba(255,255,255,0.9);
+  border-radius: 6px;
+  color: #fff;
+  background: transparent;
+  font-size: 13px;
+}
+
+.provider-item span {
+  display: inline-block;
+}
+
 .detail-label {
   font-size: 11px;
   color: #888;

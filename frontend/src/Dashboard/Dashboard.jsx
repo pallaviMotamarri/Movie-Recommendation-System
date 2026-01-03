@@ -979,74 +979,136 @@ function MovieDetailModal({ movie, onClose, genres }) {
     
     return genreNames || 'Not specified';
   };
+    const [providers, setProviders] = useState(null);
 
+    useEffect(() => {
+      if (!movie || !movie.id) return;
+      let cancelled = false;
 
-  return (
-    <div className="modal-overlay">
-      <div className="modal-backdrop" onClick={onClose} />
+      const fetchProviders = async () => {
+        try {
+          const API_KEY = import.meta.env.VITE_TMDB_API_KEY;
+          const BASE_URL = 'https://api.themoviedb.org/3';
+          const res = await fetch(`${BASE_URL}/movie/${movie.id}/watch/providers?api_key=${API_KEY}`);
+          const data = await res.json();
+          const results = data.results || {};
 
-      <div className="modal">
-        <button className="modal-close" onClick={onClose}>
-          <X size={22} />
-        </button>
+          // Prefer India results, then US, then the first available
+          const chosen = results['IN'] || results['US'] || results[Object.keys(results)[0]] || null;
+          if (!cancelled) setProviders(chosen);
+        } catch (err) {
+          console.error('Error fetching providers:', err);
+          if (!cancelled) setProviders(null);
+        }
+      };
 
-        {/* HERO */}
-        <div className="modal-hero">
-          {movie.backdrop_path && (
-            <img
-              src={`${IMAGE_BASE_URL}/original${movie.backdrop_path}`}
-              alt={movie.title}
-              className="modal-hero-image"
-            />
-          )}
+      fetchProviders();
 
-          <div className="modal-hero-overlay" />
+      return () => { cancelled = true; };
+    }, [movie && movie.id]);
 
-          <div className="modal-hero-content">
-            <h2 className="modal-title">{movie.title}</h2>
+    return (
+      <div className="modal-overlay">
+        <div className="modal-backdrop" onClick={onClose} />
 
-            {/* <div className="modal-meta">
-              <span className="meta-pill">
-                {formatDate(movie.release_date)}
-              </span>
+        <div className="modal">
+          <button className="modal-close" onClick={onClose}>
+            <X size={22} />
+          </button>
 
-              <span className="modal-rating">
-                {getSafeRating(movie.vote_average)}
-              </span>
+          {/* HERO */}
+          <div className="modal-hero">
+            {movie.backdrop_path && (
+              <img
+                src={`${IMAGE_BASE_URL}/original${movie.backdrop_path}`}
+                alt={movie.title}
+                className="modal-hero-image"
+              />
+            )}
 
-              <span className="meta-pill">{getGenreNames().split(',')[0] || 'Movie'}</span>
-            </div> */}
+            <div className="modal-hero-overlay" />
+
+            <div className="modal-hero-content">
+              <h2 className="modal-title">{movie.title}</h2>
+            </div>
           </div>
-        </div>
 
-        {/* CONTENT */}
-        <div className="modal-content">
-          <p className="modal-description">{movie.overview}</p>
+          {/* CONTENT */}
+          <div className="modal-content">
+            <p className="modal-description">{movie.overview}</p>
 
-          <div className="modal-details">
-            <div className="details-grid">
-              <div>
-                <p className="detail-label">Rating</p>
-                <p className="detail-value">
-                  {movie.vote_average.toFixed(1)}/10
-                </p>
-              </div>
+            <div className="modal-details">
+              <div className="details-grid">
+                <div>
+                  <p className="detail-label">Rating</p>
+                  <p className="detail-value">
+                    {movie.vote_average ? movie.vote_average.toFixed(1) : 'N/A'}/10
+                  </p>
+                </div>
 
-              <div>
-                <p className="detail-label">Release Date</p>
-                <p className="detail-value">
-                  {formatDate(movie.release_date)}
-                </p>
-              </div>
+                <div>
+                  <p className="detail-label">Release Date</p>
+                  <p className="detail-value">
+                    {formatDate(movie.release_date)}
+                  </p>
+                </div>
 
-              <div>
-                <p className="detail-label">Genre</p>
-                <p className="detail-value">{getGenreNames()}</p>
+                <div>
+                  <p className="detail-label">Genre</p>
+                  <p className="detail-value">{getGenreNames()}</p>
+                </div>
               </div>
             </div>
+
+            {providers && (
+              <div className="modal-providers">
+                <h3>Where to watch</h3>
+                {/* TMDB link removed per request */}
+
+                <div className="providers-sections">
+                  {providers.flatrate && providers.flatrate.length > 0 && (
+                    <div className="providers-section">
+                      <h4>Streaming</h4>
+                      <div className="provider-list">
+                        {providers.flatrate.map(p => (
+                          <div key={`f-${p.provider_id}`} className="provider-item">
+                            <span>{p.provider_name}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {providers.rent && providers.rent.length > 0 && (
+                    <div className="providers-section">
+                      <h4>Rent</h4>
+                      <div className="provider-list">
+                        {providers.rent.map(p => (
+                          <div key={`r-${p.provider_id}`} className="provider-item">
+                            <span>{p.provider_name}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {providers.buy && providers.buy.length > 0 && (
+                    <div className="providers-section">
+                      <h4>Buy</h4>
+                      <div className="provider-list">
+                        {providers.buy.map(p => (
+                          <div key={`b-${p.provider_id}`} className="provider-item">
+                            <span>{p.provider_name}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
-    </div>
-  );
+    );
 }
