@@ -648,7 +648,11 @@ const getHardcodedDubbedMovies = () => {
             <div className="genre-grid" style={{padding: '16px'}}>
               {movies.map(movie => (
                 <div key={movie.id} style={{marginBottom: 12}}>
-                  <MovieCard movie={movie} onClick={onMovieClick} />
+                  {movie.isDubbed ? (
+                    <DubbedMovieCard movie={movie} onClick={onMovieClick} />
+                  ) : (
+                    <MovieCard movie={movie} onClick={onMovieClick} />
+                  )}
                 </div>
               ))}
             </div>
@@ -736,30 +740,121 @@ const getHardcodedDubbedMovies = () => {
             return;
           }
 
-          // 2) Person (actor) search
+          // Expanded search: movies + people (cast & crew) + production companies
           try {
-            const pRes = await fetch(`${BASE_URL}/search/person?api_key=${API_KEY}&query=${encodeURIComponent(q)}&page=1`);
-            const pData = await pRes.json();
-            if (pData.results && pData.results.length > 0) {
-              const person = pData.results[0];
-              const creditsRes = await fetch(`${BASE_URL}/person/${person.id}/movie_credits?api_key=${API_KEY}`);
-              const creditsData = await creditsRes.json();
-              const movies = (creditsData.cast || []).sort((a,b) => (b.popularity||0) - (a.popularity||0));
-              setGenreMovies(movies.slice(0,60));
-              setGenreLoading(false);
-              return;
-            }
-          } catch (e) {
-            console.warn('person search failed', e);
-          }
+            const collected = [];
+            const seenIds = new Set();
+            const lowerQ = q.toLowerCase();
 
-          // 3) fallback: search movies
-          try {
-            const mRes = await fetch(`${BASE_URL}/search/movie?api_key=${API_KEY}&query=${encodeURIComponent(q)}&page=1`);
-            const mData = await mRes.json();
-            setGenreMovies((mData.results || []).slice(0,60));
-          } catch (e) {
-            console.error('movie search failed', e);
+            // Helper to detect dubbed candidates
+            const isDubbedCandidate = (m = {}) => {
+              if (!m) return false;
+              // If original language is Telugu, it's not dubbed
+              if (m.original_language === 'te') return false;
+              const text = `${m.title || ''} ${m.original_title || ''} ${m.overview || ''}`.toLowerCase();
+              if (/telugu|dubbed|డబ్బ/i.test(text)) return true;
+              return false;
+            };
+
+            // A) Movie search (title, overview)
+            try {
+              const mRes = await fetch(`${BASE_URL}/search/movie?api_key=${API_KEY}&query=${encodeURIComponent(q)}&page=1`);
+              const mData = await mRes.json();
+              (mData.results || []).forEach(m => { if (m && m.id && !seenIds.has(m.id)) { seenIds.add(m.id); collected.push({...m, isDubbed: isDubbedCandidate(m)}); } });
+            } catch (e) {
+              console.warn('movie search failed', e);
+            }
+
+            // B) Person search -> include cast + crew credits (director/producer/composer/etc.)
+            try {
+              const pRes = await fetch(`${BASE_URL}/search/person?api_key=${API_KEY}&query=${encodeURIComponent(q)}&page=1`);
+              const pData = await pRes.json();
+              const persons = (pData.results || []).slice(0, 5);
+              await Promise.all(persons.map(async (person) => {
+                try {
+                  const creditsRes = await fetch(`${BASE_URL}/person/${person.id}/movie_credits?api_key=${API_KEY}`);
+                  const creditsData = await creditsRes.json();
+                  const moviesFromPerson = [...(creditsData.cast || []), ...(creditsData.crew || [])];
+                  moviesFromPerson.forEach(m => { if (m && m.id && !seenIds.has(m.id)) { seenIds.add(m.id); collected.push({...m, isDubbed: isDubbedCandidate(m)}); } });
+                } catch (err) {
+                  console.warn('person credits failed', err);
+                }
+              }));
+            } catch (e) {
+              console.warn('person search failed', e);
+            }
+
+            // C) Company search -> discover by company (production house)
+            try {
+              const cRes = await fetch(`${BASE_URL}/search/company?api_key=${API_KEY}&query=${encodeURIComponent(q)}&page=1`);
+              const cData = await cRes.json();
+              const companies = (cData.results || []).slice(0, 3);
+              await Promise.all(companies.map(async (comp) => {
+                try {
+                  const discRes = await fetch(`${BASE_URL}/discover/movie?api_key=${API_KEY}&with_companies=${comp.id}&page=1&sort_by=popularity.desc`);
+                  const discData = await discRes.json();
+                  (discData.results || []).forEach(m => { if (m && m.id && !seenIds.has(m.id)) { seenIds.add(m.id); collected.push({...m, isDubbed: isDubbedCandidate(m)}); } });
+                } catch (err) {
+                  console.warn('company discover failed', err);
+                }
+              }));
+            } catch (e) {
+              console.warn('company search failed', e);
+            }
+
+            // Score & sort results to prefer closer matches (title > overview > popularity)
+            const scoreFor = (m) => {
+              let score = 0;
+              const t = (m.title || '').toLowerCase();
+              const o = (m.overview || '').toLowerCase();
+              if (t.includes(lowerQ)) score += 50;
+              if (o.includes(lowerQ)) score += 30;
+              if ((m.original_title || '').toLowerCase().includes(lowerQ)) score += 20;
+              score += (m.popularity || 0) * 0.01;
+              return score;
+            };
+
+            // Also try searching explicitly for Telugu originals matching the query
+            try {
+              const tRes = await fetch(`${BASE_URL}/search/movie?api_key=${API_KEY}&query=${encodeURIComponent(q + ' Telugu')}&page=1`);
+              const tData = await tRes.json();
+              (tData.results || []).forEach(m => {
+                if (m && m.id && !seenIds.has(m.id)) {
+                  // prefer originals only
+                  if (m.original_language === 'te') {
+                    seenIds.add(m.id);
+                    collected.push({...m, isDubbed: false});
+                  }
+                }
+              });
+            } catch (err) {
+              /* ignore */
+            }
+
+            const unique = collected.slice();
+            unique.sort((a, b) => scoreFor(b) - scoreFor(a));
+
+            // Mark items as dubbed if they appear in the global `dubbedMovies` list
+            try {
+              const dubbedIds = new Set((dubbedMovies || []).map(d => d.id));
+              unique.forEach((m) => {
+                if (!m) return;
+                // keep existing flag if set
+                if (m.isDubbed) return;
+                if (dubbedIds.has(m.id) && m.original_language !== 'te') {
+                  m.isDubbed = true;
+                }
+              });
+            } catch (e) {
+              // ignore if dubbedMovies not ready
+            }
+
+            // Keep only Telugu originals or dubbed items
+            const onlyTelugu = unique.filter(m => m && (m.original_language === 'te' || m.isDubbed));
+
+            setGenreMovies(onlyTelugu.slice(0, 60));
+          } catch (err) {
+            console.error('expanded search failed', err);
             setGenreMovies([]);
           } finally {
             setGenreLoading(false);
@@ -848,10 +943,24 @@ function Header({ isMenuOpen, setIsMenuOpen, onSelectGenre, searchOpen, setSearc
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search genre, actor or movie"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      const q = (searchQuery || '').trim();
+                      if (!q) return;
+                      if (typeof onSearchSubmit === 'function') onSearchSubmit(q);
+                      setSearchOpen(false);
+                    }
+                  }}
                 />
                 <button
                   className="search-submit"
-                  onClick={() => { if (typeof onSearchSubmit === 'function') onSearchSubmit(searchQuery); setSearchOpen(false); }}
+                  onClick={() => {
+                    const q = (searchQuery || '').trim();
+                    if (!q) return;
+                    if (typeof onSearchSubmit === 'function') onSearchSubmit(q);
+                    setSearchOpen(false);
+                  }}
                 >
                   Search
                 </button>
