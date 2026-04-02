@@ -15,6 +15,289 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [selectedMovie, setSelectedMovie] = useState(null);
+  const [sessionViewed, setSessionViewed] = useState([]);
+  const [sessionRecommendations, setSessionRecommendations] = useState([]);
+  const [promotedRows, setPromotedRows] = useState([]);
+
+  // ensure session id exists
+  useEffect(() => {
+    try {
+      let sid = sessionStorage.getItem('sessionId');
+      if (!sid) {
+        sid = `s_${Math.random().toString(36).slice(2,10)}`;
+        sessionStorage.setItem('sessionId', sid);
+      }
+    } catch (e) {
+      // ignore
+    }
+  }, []);
+  const [searchHistory, setSearchHistory] = useState([]);
+  const [recommendationReason, setRecommendationReason] = useState('');
+  const [showRecDebug, setShowRecDebug] = useState(false);
+
+  // Helper: detect whether an item is a Telugu original or likely Telugu-dubbed
+  const isTeluguCandidate = (it = {}) => {
+    if (!it) return false;
+    if (it.original_language && it.original_language === 'te') return true;
+    const text = `${it.title || ''} ${it.overview || ''}`;
+    if (/telugu|డబ్బ|డబ్బింగ్|dubbed/i.test(text)) return true;
+    return false;
+  };
+
+  // Open a movie in modal and track it for session recommendations
+  const openMovie = (movie) => {
+    if (!movie) return;
+    // normalize movie object to ensure tmdb_id is present
+    const resolvedId = movie.tmdb_id || movie.id || movie.movieId || movie._id;
+    const normalized = { ...movie, tmdb_id: resolvedId, id: resolvedId, title: movie.title || movie.name };
+    setSelectedMovie(normalized);
+    setSessionViewed(prev => {
+      const id = normalized.tmdb_id;
+      const filtered = (prev || []).filter(m => (m.id || m.movieId || m.tmdb_id || m._id) !== id);
+      return [normalized, ...filtered].slice(0, 10);
+    });
+    // fetch recommendations immediately for this movie so UI updates without refresh
+    try {
+      fetchRecsForMovie(normalized);
+    } catch (e) {
+      // ignore
+    }
+  };
+
+  // Helper: fetch per-movie recommendations (used by openMovie and selectedMovie effect)
+  const fetchRecsForMovie = async (mv) => {
+    if (!mv) return;
+    const API_BASE = import.meta.env.VITE_API_BASE || '';
+    const API_KEY = import.meta.env.VITE_TMDB_API_KEY;
+    let cancelled = false;
+    // do not clear existing recommendations while fetching; we'll append if we find results
+    try {
+      const collected = [];
+      const seen = new Set();
+      const tmdbId = Number(mv.tmdb_id || mv.id);
+      if (!tmdbId || Number.isNaN(tmdbId)) {
+        console.warn('[recs] fetchRecsForMovie missing tmdbId for', mv);
+        return;
+      }
+      const watchedLabel = `clicked: ${mv.title || mv.name || ''}`;
+
+      if (API_BASE) {
+        try {
+          const titleParam = encodeURIComponent(mv.title || mv.name || '');
+          const res = await fetch(`${API_BASE}/api/recommendations/${tmdbId}?limit=24&title=${titleParam}`);
+          const json = await res.json();
+          console.debug('[recs] per-movie backend response for', tmdbId, json && json.recommendations ? json.recommendations.length : 0);
+          if (json && json.ok && Array.isArray(json.recommendations)) {
+            json.recommendations.forEach(r => {
+              const id = r.tmdb_id || r.id || r.movieId;
+              if (!id || seen.has(String(id))) return;
+              seen.add(String(id));
+              collected.push({ id, title: r.title, poster_path: r.poster_path, release_date: r.release_date, vote_average: r.rating || r.vote_average, original_language: r.original_language, overview: r.overview, sources: ['watched'] });
+            });
+          }
+        } catch (e) {
+          // fallback to TMDB
+        }
+      }
+
+      if (API_KEY && collected.length < 6) {
+        try {
+          const r = await fetch(`https://api.themoviedb.org/3/movie/${tmdbId}/similar?api_key=${API_KEY}&language=en-US&page=1`);
+          const d = await r.json();
+          console.debug('[recs] per-movie tmdb similar for', tmdbId, (d.results || []).length);
+          (d.results || []).slice(0, 24).forEach(item => {
+            const id = item.id;
+            if (!id || seen.has(String(id))) return;
+            seen.add(String(id));
+            collected.push({ id, title: item.title, poster_path: item.poster_path, release_date: item.release_date, vote_average: item.vote_average, original_language: item.original_language, overview: item.overview, sources: ['tmdb_similar'] });
+          });
+        } catch (e) {
+          // ignore
+        }
+      }
+
+      const viewedIds = new Set((sessionViewed || []).map(x => String(x.id || x.movieId || x.tmdb_id || x._id)));
+      viewedIds.add(String(tmdbId));
+
+      // Enforce Telugu-only and fallbacks (translations/local/trending)
+      let filtered = collected.filter(c => isTeluguCandidate(c)).filter(c => !viewedIds.has(String(c.id)));
+      if (filtered.length === 0 && collected.length > 0 && API_KEY) {
+        const probe = collected.slice(0, 12);
+        try {
+          const checks = await Promise.all(probe.map(async (cand) => {
+            try {
+              const tRes = await fetch(`https://api.themoviedb.org/3/movie/${cand.id}/translations?api_key=${API_KEY}`);
+              const tJson = await tRes.json();
+              const hasTe = Array.isArray(tJson.translations) && tJson.translations.some(tr => tr.iso_639_1 === 'te' || (tr.english_name && /telugu/i.test(tr.english_name)));
+              return hasTe ? cand : null;
+            } catch (e) {
+              return null;
+            }
+          }));
+          const translated = checks.filter(Boolean).filter(c => !viewedIds.has(String(c.id)));
+          if (translated.length > 0) filtered = translated;
+        } catch (e) {
+          // ignore
+        }
+      }
+
+      if (filtered.length === 0) {
+        const localDubbed = (dubbedMovies || []).filter(d => !viewedIds.has(String(d.id))).slice(0, 12);
+        if (localDubbed.length > 0) filtered = localDubbed.map(d => ({ id: d.id, title: d.title, poster_path: d.poster_path, release_date: d.release_date, vote_average: d.vote_average, sources: ['local_dubbed'] }));
+      }
+
+      // do not fall back to generic trending picks; we only show Telugu candidates
+
+      if (filtered.length === 0) {
+        // no Telugu candidates for this movie; do not clear existing recommendations
+        if (!cancelled) setRecommendationReason('No Telugu recommendations available for this movie');
+        return;
+      }
+
+      const picks = filtered.slice(0, 2).map(r => ({ id: r.id, title: r.title, poster_path: r.poster_path, release_date: r.release_date, vote_average: r.vote_average, sources: r.sources || [] }));
+      if (!cancelled) {
+        setSessionRecommendations(prev => {
+          const prevArr = Array.isArray(prev) ? [...prev] : [];
+          // keep new picks to the left (prepend), preserve their order, and avoid duplicates
+          const newOnes = picks.filter(p => !prevArr.some(x => String(x.id) === String(p.id)));
+          const combined = [...newOnes, ...prevArr];
+          return combined.slice(0, 100);
+        });
+        setRecommendationReason(`Because you clicked ${mv.title || mv.name}`);
+      }
+    } catch (err) {
+      console.error('fetchRecsForMovie error', err);
+    }
+  };
+
+  // Persist sessionViewed to sessionStorage and load on mount
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem('sessionViewed');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) setSessionViewed(parsed.slice(0, 10));
+      }
+    } catch (e) {
+      // ignore
+    }
+    try {
+      const rawS = localStorage.getItem('searchHistory');
+      if (rawS) {
+        const parsedS = JSON.parse(rawS);
+        if (Array.isArray(parsedS) && parsedS.length > 0) setSearchHistory(parsedS.slice(0, 20));
+      }
+    } catch (e) {
+      // ignore
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem('sessionViewed', JSON.stringify(sessionViewed.slice(0, 10)));
+    } catch (e) {
+      // ignore
+    }
+    try {
+      localStorage.setItem('searchHistory', JSON.stringify(searchHistory.slice(0, 20)));
+    } catch (e) {
+      // ignore
+    }
+  }, [sessionViewed, searchHistory]);
+
+  // Build merged recommendations from clicks, searches, or fallback trending
+  useEffect(() => {
+    // Disabled: per-user request only actual per-click recommendations should be shown (no default/combined auto-fill)
+    return; 
+  }, [sessionViewed, searchHistory, trending, popular]);
+
+  // Per-movie recommendations: when user clicks a movie, show recs specific to that movie
+  useEffect(() => {
+    if (!selectedMovie) return;
+    let cancelled = false;
+    const API_BASE = import.meta.env.VITE_API_BASE || '';
+    const API_KEY = import.meta.env.VITE_TMDB_API_KEY;
+
+    const buildForMovie = async () => {
+      try {
+        const collected = [];
+        const seen = new Set();
+        const tmdbId = selectedMovie.tmdb_id || selectedMovie.id;
+        if (!tmdbId) return;
+
+        const watchedLabel = `clicked: ${selectedMovie.title || selectedMovie.name || ''}`;
+
+        // try backend precomputed
+        if (API_BASE) {
+          try {
+            const titleParam = encodeURIComponent(selectedMovie.title || selectedMovie.name || '');
+            const res = await fetch(`${API_BASE}/api/recommendations/${tmdbId}?limit=24&title=${titleParam}`);
+            const json = await res.json();
+            console.debug('[recs] per-movie backend response for', tmdbId, json && json.recommendations ? json.recommendations.length : 0);
+            if (json && json.ok && Array.isArray(json.recommendations)) {
+              json.recommendations.forEach(r => {
+                const id = r.tmdb_id || r.id || r.movieId;
+                if (!id || seen.has(String(id))) return;
+                seen.add(String(id));
+                collected.push({ id, title: r.title, poster_path: r.poster_path, release_date: r.release_date, vote_average: r.rating || r.vote_average, original_language: r.original_language, overview: r.overview, sources: ['watched'] });
+              });
+            }
+          } catch (e) {
+            // fallback to TMDB
+          }
+        }
+
+        // fallback to TMDB similar
+        if (API_KEY && collected.length < 6) {
+          try {
+            const r = await fetch(`https://api.themoviedb.org/3/movie/${tmdbId}/similar?api_key=${API_KEY}&language=en-US&page=1`);
+            const d = await r.json();
+            console.debug('[recs] per-movie tmdb similar for', tmdbId, (d.results || []).length);
+            (d.results || []).slice(0, 24).forEach(item => {
+              const id = item.id;
+              if (!id || seen.has(String(id))) return;
+              seen.add(String(id));
+              collected.push({ id, title: item.title, poster_path: item.poster_path, release_date: item.release_date, vote_average: item.vote_average, original_language: item.original_language, overview: item.overview, sources: ['tmdb_similar'] });
+            });
+          } catch (e) {
+            // ignore
+          }
+        }
+
+        // Exclude the clicked movie and any already-viewed items
+        const viewedIds = new Set((sessionViewed || []).map(x => String(x.id || x.movieId || x.tmdb_id || x._id)));
+        viewedIds.add(String(tmdbId));
+
+        // Enforce Telugu-only for per-movie recommendations
+        let filtered = collected.filter(c => isTeluguCandidate(c)).filter(c => !viewedIds.has(String(c.id)));
+        if (filtered.length === 0) {
+          // no telugu candidates for this movie — do not clear existing recommendations
+          if (!cancelled) {
+            setRecommendationReason('No Telugu recommendations available');
+          }
+          return;
+        }
+
+        // Pick up to 2 recommendations for this click and append to existing sessionRecommendations
+        const picks = filtered.slice(0, 2).map(r => ({ id: r.id, title: r.title, poster_path: r.poster_path, release_date: r.release_date, vote_average: r.vote_average, sources: r.sources }));
+        if (!cancelled) {
+          console.debug('[recs] per-movie picks=', picks.map(p => p.id), 'for', tmdbId);
+          setSessionRecommendations(prev => {
+            const prevArr = Array.isArray(prev) ? [...prev] : [];
+            const newOnes = picks.filter(p => !prevArr.some(x => String(x.id) === String(p.id)));
+            const combined = [...newOnes, ...prevArr];
+            return combined.slice(0, 100);
+          });
+          setRecommendationReason(`Because you clicked ${selectedMovie.title || selectedMovie.name}`);
+        }
+      } catch (err) {
+        console.error('Error building per-movie recommendations', err);
+      }
+    };
+
+    buildForMovie();
+    return () => { cancelled = true; };
+  }, [selectedMovie]);
   const [dubbedMovies, setDubbedMovies] = useState([]);
   const [genres, setGenres] = useState({});
   const [activeGenre, setActiveGenre] = useState(null);
@@ -85,29 +368,12 @@ export default function Dashboard() {
               
               return isOriginalTelugu || hasTeluguTitle || hasTeluguDubbed;
             }) || [];
-             if (teluguMovies.length <= 15) {
-      return teluguMovies;
-    }
-    
-    // 3. Get random 10 movies from the filtered list
-    const randomMovies = [];
-    const availableIndices = [...Array(teluguMovies.length).keys()];
-    
-    // Shuffle the indices
-    for (let i = availableIndices.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [availableIndices[i], availableIndices[j]] = [availableIndices[j], availableIndices[i]];
-    }
+            if (teluguMovies.length <= 15) {
+              return teluguMovies;
+            }
 
-    // Take first 15 random indices
-    const selectedIndices = availableIndices.slice(0, 15);
-    
-    // Get movies at those random indices
-    selectedIndices.forEach(index => {
-      randomMovies.push(teluguMovies[index]);
-    });
-    
-    return randomMovies;
+            // Deterministic selection: pick top 15 from the results (stable by TMDB ordering)
+            return teluguMovies.slice(0, 15);
             
           } catch (error) {
             console.error('Error fetching Telugu movies:', error);
@@ -546,20 +812,6 @@ const getHardcodedDubbedMovies = () => {
         const slugify = (s = '') => s.toString().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
 
         // Ensure we have genres; fetch if missing
-        if (!genres || Object.keys(genres).length === 0) {
-          try {
-            const gRes = await fetch(`${BASE_URL}/genre/movie/list?api_key=${API_KEY}&language=en`);
-            const gData = await gRes.json();
-            const genreMap = {};
-            gData.genres?.forEach(g => { genreMap[g.id] = g.name; });
-            setGenres(genreMap);
-          } catch (e) {
-            console.warn('Could not fetch genres fallback:', e);
-          }
-        }
-
-        // try exact match first, then slug/fuzzy match
-        // Use a local copy of genres so that freshly-fetched genres are used immediately
         let localGenres = genres && Object.keys(genres).length > 0 ? genres : {};
         if (!localGenres || Object.keys(localGenres).length === 0) {
           try {
@@ -718,6 +970,15 @@ const getHardcodedDubbedMovies = () => {
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
         onSearchSubmit={async (q) => {
+          // record search to history for recommendations
+          try {
+            setSearchHistory(prev => {
+              const cleaned = (prev || []).filter(s => s && s.toLowerCase() !== (q || '').toLowerCase());
+              return [...cleaned, q].slice(-20);
+            });
+          } catch (e) {
+            // ignore
+          }
           // perform search: try genre, then person (actor), then movie search
           const API_KEY = import.meta.env.VITE_TMDB_API_KEY;
           const BASE_URL = 'https://api.themoviedb.org/3';
@@ -831,6 +1092,7 @@ const getHardcodedDubbedMovies = () => {
               /* ignore */
             }
 
+            // Score & dedupe
             const unique = collected.slice();
             unique.sort((a, b) => scoreFor(b) - scoreFor(a));
 
@@ -839,14 +1101,13 @@ const getHardcodedDubbedMovies = () => {
               const dubbedIds = new Set((dubbedMovies || []).map(d => d.id));
               unique.forEach((m) => {
                 if (!m) return;
-                // keep existing flag if set
                 if (m.isDubbed) return;
                 if (dubbedIds.has(m.id) && m.original_language !== 'te') {
                   m.isDubbed = true;
                 }
               });
             } catch (e) {
-              // ignore if dubbedMovies not ready
+              // ignore
             }
 
             // Keep only Telugu originals or dubbed items
@@ -865,7 +1126,7 @@ const getHardcodedDubbedMovies = () => {
         <HeroCarousel 
           movies={popular} 
           selectedMovie={selectedMovie} 
-          setSelectedMovie={setSelectedMovie}
+          setSelectedMovie={(m) => openMovie(m)}
         />
       )}
       
@@ -875,17 +1136,39 @@ const getHardcodedDubbedMovies = () => {
             genre={activeGenre}
             movies={genreMovies}
             loading={genreLoading}
-            onMovieClick={setSelectedMovie}
+            onMovieClick={openMovie}
             onClear={() => setActiveGenre(null)}
           />
         ) : (
         <>
-          <MovieRow title="Coming Soon" movies={upcoming} onMovieClick={setSelectedMovie} />
-          <MovieRow title="Now Playing" movies={nowPlaying} onMovieClick={setSelectedMovie} />
-          <MovieRow title="Trending Now" movies={trending} onMovieClick={setSelectedMovie} />
-          <MovieRow title="Dubbed Movies" movies={dubbedMovies} onMovieClick={setSelectedMovie} />
-          <MovieRow title="Popular" movies={popular} onMovieClick={setSelectedMovie} />
-          <MovieRow title="Top Rated Movies" movies={topRated} onMovieClick={setSelectedMovie} />
+          <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px'}}>
+            <h2 className="row-title">Recommendations</h2>
+            <div>
+              <button className="clear-session-btn" onClick={() => { setSessionViewed([]); setSessionRecommendations([]); sessionStorage.removeItem('sessionViewed'); }}>Clear</button>
+              <button style={{marginLeft:8}} className="clear-session-btn" onClick={() => setShowRecDebug(s => !s)}>{showRecDebug ? 'Hide Debug' : 'Show Debug'}</button>
+            </div>
+          </div>
+          {recommendationReason && (
+            <div className="recommendation-reason" style={{padding: '0 16px 8px 16px', color: '#ddd', fontSize: 14}}>{recommendationReason}</div>
+          )}
+          {Array.isArray(sessionRecommendations) && sessionRecommendations.length > 0 && (
+            <MovieRow title="Recommended movies" movies={sessionRecommendations} onMovieClick={openMovie} />
+          )}
+          {Array.isArray(promotedRows) && promotedRows.length > 0 && promotedRows.map((p, idx) => (
+            <MovieRow key={`promoted-${idx}`} title={p.title || `Because you liked`} movies={(p.recs || p.recommendations || []).map(r => ({ id: r.tmdb_id || r.id, title: r.title, poster_path: r.poster_path, release_date: r.release_date, vote_average: r.vote_average }))} onMovieClick={openMovie} />
+          ))}
+          {showRecDebug && (
+            <div style={{padding:16, color:'#ccc', fontSize:12}}>
+              <div>Raw sessionRecommendations:</div>
+              <pre style={{maxHeight:200, overflow:'auto'}}>{JSON.stringify(sessionRecommendations, null, 2)}</pre>
+            </div>
+          )}
+          <MovieRow title="Coming Soon" movies={upcoming} onMovieClick={openMovie} />
+          <MovieRow title="Now Playing" movies={nowPlaying} onMovieClick={openMovie} />
+          <MovieRow title="Trending Now" movies={trending} onMovieClick={openMovie} />
+          <MovieRow title="Popular" movies={popular} onMovieClick={openMovie} />
+          <MovieRow title="Top Rated Movies" movies={topRated} onMovieClick={openMovie} />
+          <MovieRow title="Dubbed Movies" movies={dubbedMovies} onMovieClick={openMovie} />
         </>
         )}
 
@@ -894,7 +1177,10 @@ const getHardcodedDubbedMovies = () => {
         <MovieDetailModal 
           movie={selectedMovie} 
           onClose={() => setSelectedMovie(null)} 
+          setSelectedMovie={openMovie}
           genres={genres}
+          nowPlaying={nowPlaying}
+          upcoming={upcoming}
         />
       )}
     </div>
@@ -1293,8 +1579,9 @@ function MovieRow({ title, movies, onMovieClick }) {
 // Movie Detail Modal Component
 
 
-function MovieDetailModal({ movie, onClose, genres }) {
+function MovieDetailModal({ movie, onClose, genres, setSelectedMovie, nowPlaying = [], upcoming = [] }) {
   const IMAGE_BASE_URL = "https://image.tmdb.org/t/p";
+
   const getSafeRating = (rating) => {
     if (typeof rating !== 'number' || isNaN(rating)) return '0.0';
     return rating.toFixed(1);
@@ -1328,6 +1615,8 @@ function MovieDetailModal({ movie, onClose, genres }) {
     return genreNames || 'Not specified';
   };
     const [providers, setProviders] = useState(null);
+    const [modalRecs, setModalRecs] = useState([]);
+    const [modalRecsLoading, setModalRecsLoading] = useState(false);
 
     useEffect(() => {
       if (!movie || !movie.id) return;
@@ -1352,8 +1641,87 @@ function MovieDetailModal({ movie, onClose, genres }) {
 
       fetchProviders();
 
+      // fetch 4-6 recommendations for this movie to show in modal
+      const fetchModalRecs = async () => {
+        try {
+          setModalRecsLoading(true);
+          const API_BASE = import.meta.env.VITE_API_BASE || '';
+          const API_KEY = import.meta.env.VITE_TMDB_API_KEY;
+          const tmdbId = movie.id || movie.tmdb_id;
+          if (!tmdbId) return;
+
+          // Try backend first (uses backend/app.py -> /api/recommendations/<movie>)
+          if (API_BASE) {
+            try {
+              const titleParam = encodeURIComponent(movie.title || movie.name || '');
+              const res = await fetch(`${API_BASE}/api/recommendations/${tmdbId}?limit=5&title=${titleParam}`);
+              const j = await res.json();
+              if (j && j.ok && Array.isArray(j.recommendations) && j.recommendations.length > 0) {
+                // keep only Telugu originals or likely dubbed items
+                const telugu = j.recommendations.filter(r => {
+                  const lang = r.original_language || '';
+                  const text = `${r.title || ''} ${r.overview || ''}`;
+                  return lang === 'te' || /telugu|డబ్బ|డబ్బింగ్|dubbed/i.test(text);
+                }).slice(0,5).map(r => ({ id: r.tmdb_id || r.id, title: r.title || r.name, poster_path: r.poster_path, release_date: r.release_date, vote_average: r.vote_average }));
+                if (telugu.length > 0) {
+                  setModalRecs(telugu);
+                  return;
+                }
+              }
+            } catch (e) {
+              // fall through to TMDB fallback
+            }
+          }
+
+          // Fallback: TMDB similar
+          if (API_KEY) {
+            try {
+              const r = await fetch(`https://api.themoviedb.org/3/movie/${tmdbId}/similar?api_key=${API_KEY}&language=en-US&page=1`);
+              const d = await r.json();
+              if (d && Array.isArray(d.results)) {
+                const tel = d.results.filter(item => {
+                  const lang = item.original_language || '';
+                  const text = `${item.title || ''} ${item.overview || ''}`;
+                  return lang === 'te' || /telugu|డబ్బ|డబ్బింగ్|dubbed/i.test(text);
+                }).slice(0,5).map(item => ({ id: item.id, title: item.title, poster_path: item.poster_path, release_date: item.release_date, vote_average: item.vote_average }));
+                if (tel.length > 0) setModalRecs(tel);
+              }
+            } catch (e) {
+              // ignore
+            }
+          }
+        } finally {
+          setModalRecsLoading(false);
+        }
+      };
+
+      fetchModalRecs();
+
       return () => { cancelled = true; };
     }, [movie && movie.id]);
+
+    
+
+    const isComingSoon = (() => {
+      if (!movie || !movie.release_date) return false;
+      try {
+        const rel = new Date(movie.release_date);
+        return rel > new Date();
+      } catch (e) {
+        return false;
+      }
+    })();
+
+    // Determine if this movie is currently in the "Now Playing" row
+    const isNowPlayingMovie = (() => {
+      try {
+        const mid = String(movie && (movie.id || movie.tmdb_id || movie._id || ''));
+        if (!mid) return false;
+        return (nowPlaying || []).some(m => String(m && (m.id || m.tmdb_id || m._id || '')) === mid);
+      } catch (e) {
+        return false;
+      }
+    })();
 
     return (
       <div className="modal-overlay">
@@ -1455,6 +1823,16 @@ function MovieDetailModal({ movie, onClose, genres }) {
                 </div>
               </div>
             )}
+
+            {/* Modal recommendations */}
+            {modalRecs && modalRecs.length > 0 && !isNowPlayingMovie && !isComingSoon && (
+              <div style={{padding: '16px'}}>
+                <h3 style={{margin: '8px 0'}}>You can also watch</h3>
+                <MovieRow title="" movies={modalRecs} onMovieClick={(m) => { if (typeof setSelectedMovie === 'function') setSelectedMovie(m); }} />
+              </div>
+            )}
+
+            
           </div>
         </div>
       </div>

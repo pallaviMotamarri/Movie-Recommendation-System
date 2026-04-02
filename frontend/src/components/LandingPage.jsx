@@ -76,7 +76,7 @@ const LandingPage = () => {
                     </span>
                   </div> */}
 
-                  <button className="trailer-button" type="button">
+                  {/* <button className="trailer-button" type="button">
                    <img 
                     src="/images/PlayButton.png" 
                     alt="Play trailer"
@@ -85,7 +85,7 @@ const LandingPage = () => {
                     <span className="trailer-text">
                       Watch Trailer Picks
                     </span>
-                </button>
+                </button> */}
                 </div>
               </div>
             </section>
@@ -147,7 +147,7 @@ const LandingPage = () => {
                 </div>
 
                 {/* Footer */}
-                <footer className="footer">
+                {/* <footer className="footer">
                   <div className="footer-left">
                     <img 
                       src="/images/Logo.svg" 
@@ -165,7 +165,7 @@ const LandingPage = () => {
                   <p className="footer-text">
                     Personalized recommendations for Telugu cinema fans.
                   </p>
-                </footer>
+                </footer> */}
               </div>
             </section>
           </div>

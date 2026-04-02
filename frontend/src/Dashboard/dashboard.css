@@ -196,7 +196,7 @@ brand-text {
   position: fixed; /* ADD THIS */
   top: 64px; /* ADD THIS - height of your header */
   left: 0; /* ADD THIS */
-  right: 0; /* ADD THIS */
+  /* right: 0; ADD THIS */
   z-index: 2000; 
   background-color: rgba(0, 0, 0, 0.9);
   backdrop-filter: blur(10px);
@@ -789,12 +789,15 @@ brand-text {
 
 .modal {
   position: relative;
-  width: 42%;
-  max-width: 900px;
-  margin: 40px 0;
+  width: 60%;
+  max-width: 1100px;
+  margin: 32px auto;
   background: #111;
-  border-radius: 6px;
+  border-radius: 12px;
   overflow: hidden;
+  max-height: calc(100vh - 120px);
+  display: flex;
+  flex-direction: column;
 }
 
 /* ---------- CLOSE ---------- */
@@ -820,7 +823,7 @@ brand-text {
 
 .modal-hero {
   position: relative;
-  height: 320px;
+  height: 380px;
 }
 
 .modal-hero-image {
@@ -849,7 +852,7 @@ brand-text {
 }
 
 .modal-title {
-  font-size: 32px;
+  font-size: 34px;
   font-weight: 800;
   margin-bottom: 10px;
 }
@@ -879,7 +882,8 @@ brand-text {
 /* ---------- CONTENT ---------- */
 
 .modal-content {
-  padding: 20px 24px 24px;
+  padding: 24px 32px 28px;
+  overflow: auto;
 }
 
 .modal-description {
@@ -903,6 +907,48 @@ brand-text {
   gap: 16px;
 }
 
+@media (max-width: 1024px) {
+  .modal {
+    width: 85%;
+    max-width: 900px;
+    margin: 24px auto;
+    border-radius: 10px;
+  }
+
+  .modal-hero {
+    height: 340px;
+  }
+
+  .modal-title {
+    font-size: 30px;
+  }
+
+  .details-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .modal {
+    width: 94%;
+    max-width: none;
+    margin: 16px auto;
+    border-radius: 8px;
+  }
+
+  .modal-hero {
+    height: 220px;
+  }
+
+  .modal-title {
+    font-size: 22px;
+  }
+
+  .details-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* Provider sections inside the movie detail modal */
 .modal-providers {
   margin-top: 18px;
@@ -914,6 +960,81 @@ brand-text {
   gap: 12px;
   margin-top: 8px;
 }
+
+/* Recommendations inside modal */
+.modal-recommendations {
+  margin-top: 18px;
+}
+.modal-recommendations > h3 {
+  margin: 0 0 8px 0;
+  font-size: 18px;
+}
+.modal-recommendations .movie-row {
+  padding: 8px 0 0 0;
+}
+.modal-recommendations .row-container {
+  padding: 0 8px;
+}
+.modal-recommendations .row-scroll {
+  gap: 12px;
+  padding-bottom: 8px;
+}
+
+/* Simple recommendations scroll inside modal */
+.rec-scroll {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding: 8px 4px;
+}
+.rec-card {
+  flex: 0 0 120px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
+}
+.rec-poster {
+  width: 120px;
+  height: 180px;
+  object-fit: cover;
+  border-radius: 6px;
+}
+.rec-no-image {
+  width: 120px;
+  height: 180px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #222;
+  border-radius: 6px;
+  color: #777;
+}
+.rec-title {
+  font-size: 13px;
+  color: #ddd;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 120px;
+}
+
+.clear-session-btn {
+  background: transparent;
+  color: #d1d5db;
+  border: 1px solid rgba(255,255,255,0.08);
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.clear-session-btn:hover {
+  background: rgba(255,255,255,0.03);
+}
+
+
 
 .providers-section h4 {
   margin: 0 0 8px 0;
