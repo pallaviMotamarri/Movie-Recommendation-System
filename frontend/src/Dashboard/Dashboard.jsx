@@ -1617,6 +1617,8 @@ function MovieDetailModal({ movie, onClose, genres, setSelectedMovie, nowPlaying
     const [providers, setProviders] = useState(null);
     const [modalRecs, setModalRecs] = useState([]);
     const [modalRecsLoading, setModalRecsLoading] = useState(false);
+    const [heroSrc, setHeroSrc] = useState(null);
+    const [modalOverview, setModalOverview] = useState(movie && movie.overview ? movie.overview : '');
 
     useEffect(() => {
       if (!movie || !movie.id) return;
@@ -1640,6 +1642,74 @@ function MovieDetailModal({ movie, onClose, genres, setSelectedMovie, nowPlaying
       };
 
       fetchProviders();
+
+      // Resolve hero image: prefer movie.backdrop_path, otherwise fetch best backdrop from TMDB images
+      (async () => {
+        try {
+          const API_KEY = import.meta.env.VITE_TMDB_API_KEY;
+          const IMAGE_BASE_URL = 'https://image.tmdb.org/t/p';
+          if (movie && movie.backdrop_path) {
+            setHeroSrc(`${IMAGE_BASE_URL}/original${movie.backdrop_path}`);
+            return;
+          }
+          // if no backdrop on movie object, try TMDB images endpoint
+          if (!API_KEY || !movie || !movie.id) { setHeroSrc(null); return; }
+
+          const res = await fetch(`https://api.themoviedb.org/3/movie/${movie.id}/images?api_key=${API_KEY}`);
+          const j = await res.json();
+          if (!j) { setHeroSrc(null); return; }
+
+          // choose best backdrop by vote_count + vote_average heuristic
+          const pickBest = (arr = []) => {
+            if (!Array.isArray(arr) || arr.length === 0) return null;
+            return arr.reduce((best, cur) => {
+              const curScore = (cur.vote_count || 0) + (cur.vote_average || 0) * 10;
+              const bestScore = best ? ((best.vote_count || 0) + (best.vote_average || 0) * 10) : 0;
+              return curScore > bestScore ? cur : best;
+            }, arr[0]);
+          };
+
+          const bestBackdrop = pickBest(j.backdrops || []);
+          if (bestBackdrop && bestBackdrop.file_path) {
+            setHeroSrc(`${IMAGE_BASE_URL}/original${bestBackdrop.file_path}`);
+            return;
+          }
+
+          // fallback: if no backdrop, try posters
+          const bestPoster = pickBest(j.posters || []);
+          if (bestPoster && bestPoster.file_path) {
+            setHeroSrc(`${IMAGE_BASE_URL}/original${bestPoster.file_path}`);
+            return;
+          }
+
+          setHeroSrc(null);
+        } catch (err) {
+          console.warn('Error resolving hero image', err);
+          setHeroSrc(null);
+        }
+      })();
+
+      // Fetch overview fallback if missing
+      (async () => {
+        try {
+          const API_KEY = import.meta.env.VITE_TMDB_API_KEY;
+          const BASE_URL = 'https://api.themoviedb.org/3';
+          if ((!movie.overview || movie.overview.trim() === '') && API_KEY && movie && movie.id) {
+            try {
+              const detRes = await fetch(`${BASE_URL}/movie/${movie.id}?api_key=${API_KEY}`);
+              const detJson = await detRes.json();
+              if (detJson && detJson.overview) setModalOverview(detJson.overview);
+            } catch (err) {
+              console.warn('Could not fetch movie details for overview fallback', err);
+            }
+          } else {
+            // ensure modalOverview reflects movie prop when present
+            setModalOverview(movie && movie.overview ? movie.overview : '');
+          }
+        } catch (err) {
+          // ignore
+        }
+      })();
 
       // fetch 4-6 recommendations for this movie to show in modal
       const fetchModalRecs = async () => {
@@ -1734,9 +1804,9 @@ function MovieDetailModal({ movie, onClose, genres, setSelectedMovie, nowPlaying
 
           {/* HERO */}
           <div className="modal-hero">
-            {movie.backdrop_path && (
+            {heroSrc && (
               <img
-                src={`${IMAGE_BASE_URL}/original${movie.backdrop_path}`}
+                src={heroSrc}
                 alt={movie.title}
                 className="modal-hero-image"
               />
@@ -1751,7 +1821,7 @@ function MovieDetailModal({ movie, onClose, genres, setSelectedMovie, nowPlaying
 
           {/* CONTENT */}
           <div className="modal-content">
-            <p className="modal-description">{movie.overview}</p>
+            <p className="modal-description">{(modalOverview && modalOverview.trim()) ? modalOverview : (movie.overview || 'Overview not available.')}</p>
 
             <div className="modal-details">
               <div className="details-grid">

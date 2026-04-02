@@ -29,6 +29,7 @@ export default function MovieDetailModal({ movie, onClose, genres }) {
   };
 
   const [providers, setProviders] = useState(null);
+  const [detailOverview, setDetailOverview] = useState(movie && movie.overview ? movie.overview : '');
 
   useEffect(() => {
     if (!movie || !movie.id) return;
@@ -48,6 +49,24 @@ export default function MovieDetailModal({ movie, onClose, genres }) {
       }
     };
     fetchProviders();
+      // If overview is missing, fetch full movie details from TMDB
+      (async () => {
+        try {
+          if (movie && (!movie.overview || movie.overview.trim() === '')) {
+            const API_KEY = import.meta.env.VITE_TMDB_API_KEY;
+            const BASE_URL = 'https://api.themoviedb.org/3';
+            if (API_KEY) {
+              const detRes = await fetch(`${BASE_URL}/movie/${movie.id}?api_key=${API_KEY}`);
+              const detJson = await detRes.json();
+              if (detJson && detJson.overview) {
+                if (!cancelled) setDetailOverview(detJson.overview);
+              }
+            }
+          }
+        } catch (err) {
+          console.warn('Could not fetch movie details for overview fallback', err);
+        }
+      })();
     return () => { cancelled = true; };
   }, [movie && movie.id]);
 
@@ -65,7 +84,7 @@ export default function MovieDetailModal({ movie, onClose, genres }) {
         </div>
 
         <div className="modal-content">
-          <p className="modal-description">{movie.overview}</p>
+          <p className="modal-description">{detailOverview || movie.overview || 'Overview not available.'}</p>
           <div className="modal-details">
             <div className="details-grid">
               <div>

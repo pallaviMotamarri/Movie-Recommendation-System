@@ -832,6 +832,43 @@ brand-text {
   object-fit: cover;
 }
 
+/* When using a poster as the hero (no backdrop available):
+   - Keep a fixed, visually-pleasing size
+   - Preserve aspect ratio (no distortion)
+   - Center the poster and provide a subtle background
+*/
+.modal-hero-image--poster {
+  object-fit: contain;
+  width: auto;
+  height: 100%;
+  max-width: 420px; /* prevents extremely wide poster on large screens */
+  display: block;
+  margin: 0 auto; /* center horizontally */
+  background: linear-gradient(180deg, rgba(0,0,0,0.2), rgba(0,0,0,0.6));
+  border-radius: 6px;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.6);
+}
+
+/* A small card-like container variant (useful if poster is shown inside modal body)
+   - Fixed card size, centered image, no distortion
+*/
+.poster-card {
+  width: 220px;
+  height: 330px; /* 2:3 aspect ratio */
+  background: #0f1720;
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.6);
+}
+.poster-card img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover; /* fills card while preserving aspect */
+}
+
 .modal-hero-overlay {
   position: absolute;
   inset: 0;
