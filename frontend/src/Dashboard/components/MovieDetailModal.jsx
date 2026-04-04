@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import './../dashboard.css';
+import MovieCard from './MovieCard';
+import DubbedMovieCard from './DubbedMovieCard';
 
-export default function MovieDetailModal({ movie, onClose, genres }) {
+export default function MovieDetailModal({ movie, onClose, genres, setSelectedMovie }) {
   const IMAGE_BASE_URL = "https://image.tmdb.org/t/p";
   const getSafeRating = (rating) => {
     if (typeof rating !== 'number' || isNaN(rating)) return '0.0';
@@ -29,11 +31,37 @@ export default function MovieDetailModal({ movie, onClose, genres }) {
   };
 
   const [providers, setProviders] = useState(null);
+  const [modalRecs, setModalRecs] = useState([]);
+  const [modalRecsLoading, setModalRecsLoading] = useState(false);
   const [detailOverview, setDetailOverview] = useState(movie && movie.overview ? movie.overview : '');
 
   useEffect(() => {
     if (!movie || !movie.id) return;
     let cancelled = false;
+    // simple in-memory cache + inflight coalescing for backend/TMDB requests
+    const _cache = new Map();
+    const _inflight = new Map();
+    const cachedFetch = async (url, opts = {}, ttl = 5 * 60 * 1000) => {
+      try {
+        if (_cache.has(url)) {
+          const { ts, data } = _cache.get(url);
+          if (Date.now() - ts < ttl) return { ok: true, status: 200, json: async () => data };
+        }
+        if (_inflight.has(url)) return await _inflight.get(url);
+        const p = (async () => {
+          const res = await fetch(url, opts);
+          let data = null;
+          try { data = await res.json(); } catch (e) { data = null; }
+          if (res && res.ok) _cache.set(url, { ts: Date.now(), data });
+          _inflight.delete(url);
+          return { ok: res && res.ok, status: res ? res.status : 0, json: async () => data };
+        })();
+        _inflight.set(url, p);
+        return await p;
+      } catch (e) {
+        return { ok: false, status: 0, json: async () => null };
+      }
+    };
     const fetchProviders = async () => {
       try {
         const API_KEY = import.meta.env.VITE_TMDB_API_KEY;
@@ -67,6 +95,62 @@ export default function MovieDetailModal({ movie, onClose, genres }) {
           console.warn('Could not fetch movie details for overview fallback', err);
         }
       })();
+
+      // Fetch recommendations for modal: try backend then TMDB similar as fallback
+      const fetchModalRecs = async () => {
+        try {
+          setModalRecsLoading(true);
+          const API_BASE = import.meta.env.VITE_API_BASE || '';
+          const API_KEY = import.meta.env.VITE_TMDB_API_KEY;
+          const tmdbId = movie.id || movie.tmdb_id;
+          if (!tmdbId) return;
+
+          // Backend first: /api/recommendations/:movie (app.py)
+          if (API_BASE) {
+            try {
+              const titleParam = encodeURIComponent(movie.title || movie.name || '');
+              const res = await cachedFetch(`${API_BASE}/api/recommendations/${tmdbId}?limit=6&title=${titleParam}`);
+              const j = await res.json();
+              if (j && j.ok && Array.isArray(j.recommendations) && j.recommendations.length > 0) {
+                // prefer Telugu originals or likely dubbed
+                const telugu = j.recommendations.filter(r => {
+                  const lang = r.original_language || '';
+                  const text = `${r.title || ''} ${r.overview || ''}`;
+                  return lang === 'te' || /telugu|డబ్బ|డబ్బింగ్|dubbed/i.test(text);
+                }).slice(0,6).map(r => ({ id: r.tmdb_id || r.id, title: r.title || r.name, poster_path: r.poster_path, release_date: r.release_date, vote_average: r.vote_average }));
+                if (telugu.length > 0) {
+                  setModalRecs(telugu);
+                  return;
+                }
+              }
+            } catch (e) {
+              // continue to TMDB fallback
+            }
+          }
+
+          // TMDB fallback: similar
+          if (API_KEY) {
+            try {
+              const r = await cachedFetch(`https://api.themoviedb.org/3/movie/${tmdbId}/similar?api_key=${API_KEY}&language=en-US&page=1`);
+              const d = await r.json();
+              if (d && Array.isArray(d.results)) {
+                const tel = d.results.filter(item => {
+                  const lang = item.original_language || '';
+                  const text = `${item.title || ''} ${item.overview || ''}`;
+                  return lang === 'te' || /telugu|డబ్బ|డబ్బింగ్|dubbed/i.test(text);
+                }).slice(0,6).map(item => ({ id: item.id, title: item.title, poster_path: item.poster_path, release_date: item.release_date, vote_average: item.vote_average }));
+                if (tel.length > 0) setModalRecs(tel);
+              }
+            } catch (e) {
+              // ignore
+            }
+          }
+        } finally {
+          setModalRecsLoading(false);
+        }
+      };
+
+      fetchModalRecs();
     return () => { cancelled = true; };
   }, [movie && movie.id]);
 
@@ -138,6 +222,28 @@ export default function MovieDetailModal({ movie, onClose, genres }) {
                     </div>
                   </div>
                 )}
+              </div>
+            </div>
+          )}
+
+          {/* Modal recommendations from backend or TMDB */}
+          {modalRecs && modalRecs.length > 0 && (
+            <div style={{padding: '16px'}}>
+              <h3 style={{margin: '8px 0'}}>You can also watch</h3>
+              <div className="movie-row">
+                <div className="row-container">
+                  <div className="row-scroll" style={{display: 'flex', gap: 12}}>
+                    {modalRecs.map(m => (
+                      <div key={m.id} style={{width: 140}}>
+                        {(m.isDubbed) ? (
+                          <DubbedMovieCard movie={m} onClick={() => { if (typeof setSelectedMovie === 'function') { setSelectedMovie(m); } else { if (typeof onClose === 'function') onClose(); } }} />
+                        ) : (
+                          <MovieCard movie={m} onClick={() => { if (typeof setSelectedMovie === 'function') { setSelectedMovie(m); } else { if (typeof onClose === 'function') onClose(); } }} />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
           )}

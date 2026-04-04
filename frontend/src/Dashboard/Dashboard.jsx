@@ -1,12 +1,19 @@
-import { useState, useEffect, useRef, StrictMode } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { createRoot } from 'react-dom/client';
-import { Search, User, Menu, X, ChevronLeft, ChevronRight, Play, Star, Share2, ThumbsUp, Volume2, VolumeX } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+// icons are provided by individual components
 import './dashboard.css';
+import Header from './components/Header';
+import HeroCarousel from './components/HeroCarousel';
+import MovieCard from './components/MovieCard';
+import DubbedMovieCard from './components/DubbedMovieCard';
+import MovieRow from './components/MovieRow';
+import MovieDetailModal from './components/MovieDetailModal';
+import GenreView from './components/GenreView';
 
 // Main App Component
 export default function Dashboard() {
   const navigate = useNavigate();
+  const params = useParams();
   const [trending, setTrending] = useState([]);
   const [popular, setPopular] = useState([]);
   const [topRated, setTopRated] = useState([]);
@@ -31,6 +38,28 @@ export default function Dashboard() {
       // ignore
     }
   }, []);
+
+  // If the route is /genre-:slug, set the active genre accordingly
+  useEffect(() => {
+    try {
+      const slug = params && params.slug ? String(params.slug) : null;
+      if (!slug) return;
+      const slugify = (s = '') => s.toString().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+      const navList = ['Comedy', 'Romance', 'Thriller', 'Horror', 'Action', 'Drama', 'Sci-Fi', 'Fantasy'];
+      const match = navList.find(l => slugify(l) === slug);
+      if (match) {
+        setSearchMode(false);
+        setActiveGenre(match);
+      } else {
+        // if no match, try to decode from raw slug (replace - with space and capitalize)
+        const fallback = slug.replace(/-/g, ' ').split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+        setSearchMode(false);
+        setActiveGenre(fallback);
+      }
+    } catch (e) {
+      // ignore
+    }
+  }, [params && params.slug]);
   const [searchHistory, setSearchHistory] = useState([]);
   const [recommendationReason, setRecommendationReason] = useState('');
   const [showRecDebug, setShowRecDebug] = useState(false);
@@ -314,11 +343,7 @@ export default function Dashboard() {
         const API_KEY = import.meta.env.VITE_TMDB_API_KEY;
         const BASE_URL = 'https://api.themoviedb.org/3';
         
-        // Helper function to get image URL
-        const getImageUrl = (path, size = 'w500') => {
-          if (!path) return '';
-          return `https://image.tmdb.org/t/p/${size}${path}`;
-        };
+        // (image helper removed — not used)
 
         const fetchGenres = async () => {
         try {
@@ -868,83 +893,9 @@ const getHardcodedDubbedMovies = () => {
     return () => { cancelled = true; };
   }, [activeGenre, genres]);
 
-  function GenreView({ genre, movies, loading, onMovieClick, onClear }) {
-    return (
-      <div className="genre-view">
-        <div className="genre-header" style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 16px'}}>
-          <h2 className="row-title">{genre}</h2>
-          <div>
-            <button className="more-info-btn" onClick={onClear}>Show All</button>
-          </div>
-        </div>
+  
 
-        {loading ? (
-          <div style={{padding: 16, textAlign: 'center', marginTop: 100}}>Loading {genre} movies...</div>
-        ) : (
-          <>
-            <HeroCarousel movies={movies.slice(0, 7)} selectedMovie={null} setSelectedMovie={onMovieClick} />
-
-            <div style={{padding: '4px 16px 0 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-              <div className="genre-logo-title">{genre}</div>
-              <div className="genre-controls">
-                <button
-                  type="button"
-                  className="go-back-btn"
-                  onClick={() => { if (typeof onClear === 'function') onClear(); navigate('/dashboard'); }}
-                >
-                  Go Back
-                </button>
-              </div>
-            </div>
-
-            <div className="genre-grid" style={{padding: '16px'}}>
-              {movies.map(movie => (
-                <div key={movie.id} style={{marginBottom: 12}}>
-                  {movie.isDubbed ? (
-                    <DubbedMovieCard movie={movie} onClick={onMovieClick} />
-                  ) : (
-                    <MovieCard movie={movie} onClick={onMovieClick} />
-                  )}
-                </div>
-              ))}
-            </div>
-          </>
-        )}
-      </div>
-    );
-  }
-
-  // useEffect(() => {
-  //   const API_KEY = import.meta.env.VITE_TMDB_API_KEY; // Replace with your TMDB API key
-  //   const BASE_URL = 'https://api.themoviedb.org/3';
-  //   const IMAGE_BASE_URL = 'https://image.tmdb.org/t/p';
-  // //   const fetchMovies = async () => {
-  //     try {
-  //       const endpoints = [
-  //         `${BASE_URL}/trending/movie/week?api_key=${API_KEY}`,
-  //         `${BASE_URL}/movie/popular?api_key=${API_KEY}`,
-  //         `${BASE_URL}/movie/top_rated?api_key=${API_KEY}`,
-  //         `${BASE_URL}/movie/upcoming?api_key=${API_KEY}`,
-  //         `${BASE_URL}/movie/now_playing?api_key=${API_KEY}`
-  //       ];
-
-  //       const responses = await Promise.all(endpoints.map(url => fetch(url)));
-  //       const data = await Promise.all(responses.map(res => res.json()));
-
-  //       setTrending(data[0].results);
-  //       setPopular(data[1].results);
-  //       setTopRated(data[2].results);
-  //       setUpcoming(data[3].results);
-  //       setNowPlaying(data[4].results);
-  //     } catch (error) {
-  //       console.error('Error fetching movies:', error);
-  //     } finally {
-  //       setLoading(false);
-  //     }
-  //   };
-
-  //   fetchMovies();
-  // }, []);
+  // (Legacy example fetch removed — replaced by active fetchMovies implementation above)
 
   if (loading) {
     return (
@@ -963,14 +914,13 @@ const getHardcodedDubbedMovies = () => {
           const slug = label.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9\-]/g, '');
           setSearchMode(false);
           setActiveGenre(label);
-          navigate(`/dashboard#${slug}`);
+          navigate(`/genre/${slug}`);
         }}
         searchOpen={searchOpen}
         setSearchOpen={setSearchOpen}
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
-        onSearchSubmit={async (q) => {
-          // record search to history for recommendations
+        onSearchSubmit={(q) => {
           try {
             setSearchHistory(prev => {
               const cleaned = (prev || []).filter(s => s && s.toLowerCase() !== (q || '').toLowerCase());
@@ -979,147 +929,9 @@ const getHardcodedDubbedMovies = () => {
           } catch (e) {
             // ignore
           }
-          // perform search: try genre, then person (actor), then movie search
-          const API_KEY = import.meta.env.VITE_TMDB_API_KEY;
-          const BASE_URL = 'https://api.themoviedb.org/3';
-          const slugify = (s = '') => s.toString().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-
           if (!q || q.trim().length === 0) return;
-          setSearchMode(true);
-          setGenreLoading(true);
-          setActiveGenre(`Search: ${q}`);
-
-          // 1) Genre match
-          const qSlug = slugify(q);
-          const matchedGenreId = Object.keys(genres || {}).find(id => slugify(genres[id]) === qSlug || genres[id]?.toLowerCase() === q.toLowerCase());
-          if (matchedGenreId) {
-            // fetch discover by genre limited to Telugu
-            const res = await fetch(`${BASE_URL}/discover/movie?api_key=${API_KEY}&with_genres=${matchedGenreId}&with_original_language=te&page=1&sort_by=popularity.desc`);
-            const data = await res.json();
-            setGenreMovies((data.results || []).slice(0, 60));
-            setGenreLoading(false);
-            return;
-          }
-
-          // Expanded search: movies + people (cast & crew) + production companies
-          try {
-            const collected = [];
-            const seenIds = new Set();
-            const lowerQ = q.toLowerCase();
-
-            // Helper to detect dubbed candidates
-            const isDubbedCandidate = (m = {}) => {
-              if (!m) return false;
-              // If original language is Telugu, it's not dubbed
-              if (m.original_language === 'te') return false;
-              const text = `${m.title || ''} ${m.original_title || ''} ${m.overview || ''}`.toLowerCase();
-              if (/telugu|dubbed|డబ్బ/i.test(text)) return true;
-              return false;
-            };
-
-            // A) Movie search (title, overview)
-            try {
-              const mRes = await fetch(`${BASE_URL}/search/movie?api_key=${API_KEY}&query=${encodeURIComponent(q)}&page=1`);
-              const mData = await mRes.json();
-              (mData.results || []).forEach(m => { if (m && m.id && !seenIds.has(m.id)) { seenIds.add(m.id); collected.push({...m, isDubbed: isDubbedCandidate(m)}); } });
-            } catch (e) {
-              console.warn('movie search failed', e);
-            }
-
-            // B) Person search -> include cast + crew credits (director/producer/composer/etc.)
-            try {
-              const pRes = await fetch(`${BASE_URL}/search/person?api_key=${API_KEY}&query=${encodeURIComponent(q)}&page=1`);
-              const pData = await pRes.json();
-              const persons = (pData.results || []).slice(0, 5);
-              await Promise.all(persons.map(async (person) => {
-                try {
-                  const creditsRes = await fetch(`${BASE_URL}/person/${person.id}/movie_credits?api_key=${API_KEY}`);
-                  const creditsData = await creditsRes.json();
-                  const moviesFromPerson = [...(creditsData.cast || []), ...(creditsData.crew || [])];
-                  moviesFromPerson.forEach(m => { if (m && m.id && !seenIds.has(m.id)) { seenIds.add(m.id); collected.push({...m, isDubbed: isDubbedCandidate(m)}); } });
-                } catch (err) {
-                  console.warn('person credits failed', err);
-                }
-              }));
-            } catch (e) {
-              console.warn('person search failed', e);
-            }
-
-            // C) Company search -> discover by company (production house)
-            try {
-              const cRes = await fetch(`${BASE_URL}/search/company?api_key=${API_KEY}&query=${encodeURIComponent(q)}&page=1`);
-              const cData = await cRes.json();
-              const companies = (cData.results || []).slice(0, 3);
-              await Promise.all(companies.map(async (comp) => {
-                try {
-                  const discRes = await fetch(`${BASE_URL}/discover/movie?api_key=${API_KEY}&with_companies=${comp.id}&page=1&sort_by=popularity.desc`);
-                  const discData = await discRes.json();
-                  (discData.results || []).forEach(m => { if (m && m.id && !seenIds.has(m.id)) { seenIds.add(m.id); collected.push({...m, isDubbed: isDubbedCandidate(m)}); } });
-                } catch (err) {
-                  console.warn('company discover failed', err);
-                }
-              }));
-            } catch (e) {
-              console.warn('company search failed', e);
-            }
-
-            // Score & sort results to prefer closer matches (title > overview > popularity)
-            const scoreFor = (m) => {
-              let score = 0;
-              const t = (m.title || '').toLowerCase();
-              const o = (m.overview || '').toLowerCase();
-              if (t.includes(lowerQ)) score += 50;
-              if (o.includes(lowerQ)) score += 30;
-              if ((m.original_title || '').toLowerCase().includes(lowerQ)) score += 20;
-              score += (m.popularity || 0) * 0.01;
-              return score;
-            };
-
-            // Also try searching explicitly for Telugu originals matching the query
-            try {
-              const tRes = await fetch(`${BASE_URL}/search/movie?api_key=${API_KEY}&query=${encodeURIComponent(q + ' Telugu')}&page=1`);
-              const tData = await tRes.json();
-              (tData.results || []).forEach(m => {
-                if (m && m.id && !seenIds.has(m.id)) {
-                  // prefer originals only
-                  if (m.original_language === 'te') {
-                    seenIds.add(m.id);
-                    collected.push({...m, isDubbed: false});
-                  }
-                }
-              });
-            } catch (err) {
-              /* ignore */
-            }
-
-            // Score & dedupe
-            const unique = collected.slice();
-            unique.sort((a, b) => scoreFor(b) - scoreFor(a));
-
-            // Mark items as dubbed if they appear in the global `dubbedMovies` list
-            try {
-              const dubbedIds = new Set((dubbedMovies || []).map(d => d.id));
-              unique.forEach((m) => {
-                if (!m) return;
-                if (m.isDubbed) return;
-                if (dubbedIds.has(m.id) && m.original_language !== 'te') {
-                  m.isDubbed = true;
-                }
-              });
-            } catch (e) {
-              // ignore
-            }
-
-            // Keep only Telugu originals or dubbed items
-            const onlyTelugu = unique.filter(m => m && (m.original_language === 'te' || m.isDubbed));
-
-            setGenreMovies(onlyTelugu.slice(0, 60));
-          } catch (err) {
-            console.error('expanded search failed', err);
-            setGenreMovies([]);
-          } finally {
-            setGenreLoading(false);
-          }
+          setSearchOpen(false);
+          navigate(`/search?q=${encodeURIComponent(q)}`);
         }}
       />
       {!activeGenre && (
@@ -1130,7 +942,7 @@ const getHardcodedDubbedMovies = () => {
         />
       )}
       
-      <div className={`movie-rows-container ${activeGenre ? 'genre-active' : ''}`}>
+      <div className={`movie-rows-container ${activeGenre ? 'genre-active' : ''} ${searchMode ? 'search-active' : ''} ${(!activeGenre && !searchMode) ? 'hero-active' : ''}`}>
         {activeGenre ? (
           <GenreView
             genre={activeGenre}
@@ -1138,31 +950,18 @@ const getHardcodedDubbedMovies = () => {
             loading={genreLoading}
             onMovieClick={openMovie}
             onClear={() => setActiveGenre(null)}
+            searchMode={searchMode}
           />
         ) : (
         <>
-          <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px'}}>
-            <h2 className="row-title">Recommendations</h2>
-            <div>
-              <button className="clear-session-btn" onClick={() => { setSessionViewed([]); setSessionRecommendations([]); sessionStorage.removeItem('sessionViewed'); }}>Clear</button>
-              <button style={{marginLeft:8}} className="clear-session-btn" onClick={() => setShowRecDebug(s => !s)}>{showRecDebug ? 'Hide Debug' : 'Show Debug'}</button>
-            </div>
-          </div>
-          {recommendationReason && (
-            <div className="recommendation-reason" style={{padding: '0 16px 8px 16px', color: '#ddd', fontSize: 14}}>{recommendationReason}</div>
-          )}
+          {/* Recommendations header and debug controls removed per request */}
           {Array.isArray(sessionRecommendations) && sessionRecommendations.length > 0 && (
             <MovieRow title="Recommended movies" movies={sessionRecommendations} onMovieClick={openMovie} />
           )}
           {Array.isArray(promotedRows) && promotedRows.length > 0 && promotedRows.map((p, idx) => (
             <MovieRow key={`promoted-${idx}`} title={p.title || `Because you liked`} movies={(p.recs || p.recommendations || []).map(r => ({ id: r.tmdb_id || r.id, title: r.title, poster_path: r.poster_path, release_date: r.release_date, vote_average: r.vote_average }))} onMovieClick={openMovie} />
           ))}
-          {showRecDebug && (
-            <div style={{padding:16, color:'#ccc', fontSize:12}}>
-              <div>Raw sessionRecommendations:</div>
-              <pre style={{maxHeight:200, overflow:'auto'}}>{JSON.stringify(sessionRecommendations, null, 2)}</pre>
-            </div>
-          )}
+          {/* Debug dump removed */}
           <MovieRow title="Coming Soon" movies={upcoming} onMovieClick={openMovie} />
           <MovieRow title="Now Playing" movies={nowPlaying} onMovieClick={openMovie} />
           <MovieRow title="Trending Now" movies={trending} onMovieClick={openMovie} />
@@ -1187,725 +986,5 @@ const getHardcodedDubbedMovies = () => {
   );
 }
 
-// Header Component
-function Header({ isMenuOpen, setIsMenuOpen, onSelectGenre, searchOpen, setSearchOpen, searchQuery, setSearchQuery, onSearchSubmit }) {
-  const navItems = [
-    { label: 'Comedy', href: '/genre/comedy' },
-    { label: 'Romance', href: '/genre/romance' },
-    { label: 'Thriller', href: '/genre/thriller' },
-    { label: 'Horror', href: '/genre/horror' },
-    { label: 'Action', href: '/genre/action' },
-    { label: 'Drama', href: '/genre/drama' },
-    { label: 'Sci-Fi', href: '/genre/sci-fi' },
-    { label: 'Fantasy', href: '/genre/fantasy' },
-  ];
 
-  return (
-    <header className="header">
-      <div className="header-container">
-        <div className="header-content">
-          <div className="header-left">
-            <button 
-              className="menu-toggle"
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
-            >
-              {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
-            </button>
-            <div className="brand-text">
-              <h1 className="brand-title">
-                Telugu CineGuide
-              </h1>
-              <p className="brand-subtitle">
-                Curated picks for Telugu movie lovers
-              </p>
-            </div>
-          </div>
-
-          <div className="header-right">
-            {searchOpen ? (
-              <div className="search-box">
-                <input
-                  className="search-input"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search genre, actor or movie"
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      const q = (searchQuery || '').trim();
-                      if (!q) return;
-                      if (typeof onSearchSubmit === 'function') onSearchSubmit(q);
-                      setSearchOpen(false);
-                    }
-                  }}
-                />
-                <button
-                  className="search-submit"
-                  onClick={() => {
-                    const q = (searchQuery || '').trim();
-                    if (!q) return;
-                    if (typeof onSearchSubmit === 'function') onSearchSubmit(q);
-                    setSearchOpen(false);
-                  }}
-                >
-                  Search
-                </button>
-                <button className="search-close" onClick={() => setSearchOpen(false)}>X</button>
-              </div>
-            ) : (
-              <button className="search-btn" onClick={() => setSearchOpen(true)}>
-                <Search size={20} />
-              </button>
-            )}
-            {/* <button className="subscribe-btn">
-              <User size={18} />
-              <span>Subscribe</span>
-            </button> */}
-          </div>
-        </div>
-
-        {isMenuOpen && (
-          <nav className="mobile-nav">
-            <div className="mobile-nav-items">
-              {navItems.map((item) => (
-                <button
-                  key={item.label}
-                  type="button"
-                  className="mobile-nav-item"
-                  onClick={() => { if (typeof onSelectGenre === 'function') onSelectGenre(item.label); setIsMenuOpen(false); }}
-                >
-                  {item.label}
-                </button>
-              ))}
-            </div>
-          </nav>
-        )}
-      </div>
-    </header>
-  );
-}
-
-// Hero Carousel Component
-function HeroCarousel({ movies, selectedMovie, setSelectedMovie }) {
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [autoplay, setAutoplay] = useState(true);
-  const IMAGE_BASE_URL = 'https://image.tmdb.org/t/p';
-
-  const carouselMovies = movies.slice(0, 7);
-
-  useEffect(() => {
-    if (!autoplay || selectedMovie) return;
-
-    const timer = setInterval(() => {
-      setCurrentIndex((prev) => (prev + 1) % carouselMovies.length);
-    }, 5000);
-
-    return () => clearInterval(timer);
-  }, [autoplay, selectedMovie, carouselMovies.length]);
-
-  const goToPrevious = () => {
-    setCurrentIndex((prev) => (prev - 1 + carouselMovies.length) % carouselMovies.length);
-    setAutoplay(false);
-  };
-
-  const goToNext = () => {
-    setCurrentIndex((prev) => (prev + 1) % carouselMovies.length);
-    setAutoplay(false);
-  };
-
-  const goToSlide = (index) => {
-    setCurrentIndex(index);
-    setAutoplay(false);
-  };
-
-  const getSafeRating = (rating) => {
-    if (typeof rating !== 'number' || isNaN(rating)) return '0.0';
-    return rating.toFixed(1);
-  };
-
-  if (carouselMovies.length === 0) return null;
-
-  const currentMovie = carouselMovies[currentIndex];
-
-  return (
-    <>
-      <div className="hero-carousel">
-        <div className="carousel-container">
-          {carouselMovies.map((movie, index) => (
-            <div
-              key={movie.id}
-              className={`carousel-slide ${index === currentIndex ? 'active' : ''}`}
-            >
-              <img
-                src={movie.backdrop_path ? `${IMAGE_BASE_URL}/original${movie.backdrop_path}` : ''}
-                alt={movie.title}
-                className="carousel-image"
-              />
-              <div className="carousel-overlay"></div>
-            </div>
-          ))}
-
-          <div className="carousel-content">
-            <div className="carousel-info">
-              <h1 className="carousel-title">{currentMovie.title}</h1>
-
-              <div className="carousel-meta">
-                <div className="rating-badge">
-                  <span>{getSafeRating(currentMovie.vote_average)}</span>
-                </div>
-                <span className="year">
-                  {new Date(currentMovie.release_date).getFullYear()}
-                </span>
-              </div>
-
-              <p className="carousel-description">
-                {currentMovie.overview}
-              </p>
-
-              <div className="carousel-actions">
-                {/* <button className="watch-now-btn">
-                  <Play size={20} />
-                  <span>Watch Now</span>
-                </button> */}
-                <button 
-                  className="more-info-btn"
-                  onClick={() => setSelectedMovie(currentMovie)}
-                >
-                  <span>More Info</span>
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* <button onClick={goToPrevious} className="carousel-nav prev">
-            <ChevronLeft size={24} />
-          </button>
-
-          <button onClick={goToNext} className="carousel-nav next">
-            <ChevronRight size={24} />
-          </button> */}
-        </div>
-
-        <div className="carousel-indicators">
-          {carouselMovies.map((_, index) => (
-            <button
-              key={index}
-              onClick={() => goToSlide(index)}
-              className={`indicator ${index === currentIndex ? 'active' : ''}`}
-            />
-          ))}
-        </div>
-      </div>
-    </>
-  );
-}
-
-// Movie Card Component
-function MovieCard({ movie, onClick }) {
-  const IMAGE_BASE_URL = 'https://image.tmdb.org/t/p';
-  const getSafeRating = (rating) => {
-    if (typeof rating !== 'number' || isNaN(rating)) return '0.0';
-    return rating.toFixed(1);
-  };
-  return (
-    <div className="movie-card" onClick={() => onClick(movie)}>
-      <div className="movie-poster">
-        {movie.poster_path ? (
-          <img
-            src={`${IMAGE_BASE_URL}/w500${movie.poster_path}`}
-            alt={movie.title}
-            className="movie-image"
-          />
-        ) : (
-          <div className="no-image">No Image</div>
-        )}
-        <div className="poster-overlay"></div>
-
-        <div className="movie-rating">
-          <Star size={12} />
-          <span>{getSafeRating(movie.vote_average)}</span>
-        </div>
-      </div>
-
-      <div className="movie-info">
-        <h3 className="movie-title">{movie.title}</h3>
-        <p className="movie-year">
-          {movie.release_date ? new Date(movie.release_date).getFullYear() : 'N/A'}
-        </p>
-      </div>
-    </div>
-  );
-}
-
-// Dubbed Movie Card Component (with Telugu Dubbed badge)
-function DubbedMovieCard({ movie, onClick }) {
-  const IMAGE_BASE_URL = 'https://image.tmdb.org/t/p';
-  const getSafeRating = (rating) => {
-    if (typeof rating !== 'number' || isNaN(rating)) return '0.0';
-    return rating.toFixed(1);
-  };
-  const formatDate = (dateString) => {
-  if (!dateString) return 'N/A';
-  
-  try {
-    const date = new Date(dateString);
-    if (isNaN(date.getTime())) return 'N/A';
-    
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const year = date.getFullYear();
-    
-    return `${day}-${month}-${year}`;
-  } catch (error) {
-    return 'N/A';
-  }
-};
-
-  return (
-    <div className="movie-card dubbed" onClick={() => onClick(movie)}>
-      <div className="movie-poster">
-        {movie.poster_path ? (
-          <img
-            src={`${IMAGE_BASE_URL}/w500${movie.poster_path}`}
-            alt={movie.title}
-            className="movie-image"
-          />
-        ) : (
-          <div className="no-image">No Image</div>
-        )}
-        <div className="poster-overlay"></div>
-        
-        {/* Dubbed Badge */}
-        <div className="dubbed-badge">Dubbed</div>
-
-        <div className="movie-rating">
-          <Star size={12} />
-          <span>{getSafeRating(movie.vote_average)}</span>
-        </div>
-      </div>
-
-      <div className="movie-info">
-        <h3 className="movie-title">{movie.title}</h3>
-        <p className="movie-year">
-          {movie.release_date ? new Date(movie.release_date).getFullYear(): 'N/A'}
-        </p>
-      </div>
-    </div>
-  );
-}
-
-// Movie Row Component
-function MovieRow({ title, movies, onMovieClick }) {
-  const scrollContainerRef = useRef(null);
-  const [showLeftArrow, setShowLeftArrow] = useState(false);
-  const [showRightArrow, setShowRightArrow] = useState(true);
-
-  const scroll = (direction) => {
-    if (scrollContainerRef.current) {
-      const scrollAmount = scrollContainerRef.current.offsetWidth * 0.8;
-      const newScrollLeft = direction === 'left'
-        ? scrollContainerRef.current.scrollLeft - scrollAmount
-        : scrollContainerRef.current.scrollLeft + scrollAmount;
-
-      scrollContainerRef.current.scrollTo({
-        left: newScrollLeft,
-        behavior: 'smooth'
-      });
-    }
-  };
-
-  const handleScroll = () => {
-    if (scrollContainerRef.current) {
-      const { scrollLeft, scrollWidth, clientWidth } = scrollContainerRef.current;
-      setShowLeftArrow(scrollLeft > 0);
-      setShowRightArrow(scrollLeft < scrollWidth - clientWidth - 10);
-    }
-  };
-
-  if (movies.length === 0){
-    return (
-    <div className="movie-row">
-      <h2 className="row-title">{title}</h2>
-      <div className="no-movies-message">
-        No movies available in this category
-      </div>
-    </div>
-  );
-  }
-  const isDubbedRow = title.toLowerCase().includes('dubbed');
-
-
-  return (
-    <div className="movie-row">
-      <h2 className="row-title">{title}</h2>
-
-      <div className="row-container">
-        {showLeftArrow && (
-          <button
-            onClick={() => scroll('left')}
-            className="row-nav left"
-          >
-            <ChevronLeft size={24} />
-          </button>
-        )}
-
-        <div
-          ref={scrollContainerRef}
-          onScroll={handleScroll}
-          className="row-scroll"
-        >
-          {movies.map((movie) => (
-            isDubbedRow ? (
-              <DubbedMovieCard key={movie.id} movie={movie} onClick={onMovieClick} />
-            ) : (
-              <MovieCard key={movie.id} movie={movie} onClick={onMovieClick} />
-            )
-          ))}
-        </div>
-
-        {showRightArrow && (
-          <button
-            onClick={() => scroll('right')}
-            className="row-nav right"
-          >
-            <ChevronRight size={24} />
-          </button>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// Movie Detail Modal Component
-
-
-function MovieDetailModal({ movie, onClose, genres, setSelectedMovie, nowPlaying = [], upcoming = [] }) {
-  const IMAGE_BASE_URL = "https://image.tmdb.org/t/p";
-
-  const getSafeRating = (rating) => {
-    if (typeof rating !== 'number' || isNaN(rating)) return '0.0';
-    return rating.toFixed(1);
-  };
-  const formatDate = (dateString) => {
-  if (!dateString) return 'N/A';
-  
-  try {
-    const date = new Date(dateString);
-    if (isNaN(date.getTime())) return 'N/A';
-    
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const year = date.getFullYear();
-    
-    return `${day}-${month}-${year}`;
-  } catch (error) {
-    return 'N/A';
-  }
-};
- const getGenreNames = () => {
-    if (!movie.genre_ids || movie.genre_ids.length === 0) {
-      return 'Not specified';
-    }
-    
-    const genreNames = movie.genre_ids
-      .map(id => genres[id])
-      .filter(name => name)
-      .join(', ');
-    
-    return genreNames || 'Not specified';
-  };
-    const [providers, setProviders] = useState(null);
-    const [modalRecs, setModalRecs] = useState([]);
-    const [modalRecsLoading, setModalRecsLoading] = useState(false);
-    const [heroSrc, setHeroSrc] = useState(null);
-    const [modalOverview, setModalOverview] = useState(movie && movie.overview ? movie.overview : '');
-
-    useEffect(() => {
-      if (!movie || !movie.id) return;
-      let cancelled = false;
-
-      const fetchProviders = async () => {
-        try {
-          const API_KEY = import.meta.env.VITE_TMDB_API_KEY;
-          const BASE_URL = 'https://api.themoviedb.org/3';
-          const res = await fetch(`${BASE_URL}/movie/${movie.id}/watch/providers?api_key=${API_KEY}`);
-          const data = await res.json();
-          const results = data.results || {};
-
-          // Prefer India results, then US, then the first available
-          const chosen = results['IN'] || results['US'] || results[Object.keys(results)[0]] || null;
-          if (!cancelled) setProviders(chosen);
-        } catch (err) {
-          console.error('Error fetching providers:', err);
-          if (!cancelled) setProviders(null);
-        }
-      };
-
-      fetchProviders();
-
-      // Resolve hero image: prefer movie.backdrop_path, otherwise fetch best backdrop from TMDB images
-      (async () => {
-        try {
-          const API_KEY = import.meta.env.VITE_TMDB_API_KEY;
-          const IMAGE_BASE_URL = 'https://image.tmdb.org/t/p';
-          if (movie && movie.backdrop_path) {
-            setHeroSrc(`${IMAGE_BASE_URL}/original${movie.backdrop_path}`);
-            return;
-          }
-          // if no backdrop on movie object, try TMDB images endpoint
-          if (!API_KEY || !movie || !movie.id) { setHeroSrc(null); return; }
-
-          const res = await fetch(`https://api.themoviedb.org/3/movie/${movie.id}/images?api_key=${API_KEY}`);
-          const j = await res.json();
-          if (!j) { setHeroSrc(null); return; }
-
-          // choose best backdrop by vote_count + vote_average heuristic
-          const pickBest = (arr = []) => {
-            if (!Array.isArray(arr) || arr.length === 0) return null;
-            return arr.reduce((best, cur) => {
-              const curScore = (cur.vote_count || 0) + (cur.vote_average || 0) * 10;
-              const bestScore = best ? ((best.vote_count || 0) + (best.vote_average || 0) * 10) : 0;
-              return curScore > bestScore ? cur : best;
-            }, arr[0]);
-          };
-
-          const bestBackdrop = pickBest(j.backdrops || []);
-          if (bestBackdrop && bestBackdrop.file_path) {
-            setHeroSrc(`${IMAGE_BASE_URL}/original${bestBackdrop.file_path}`);
-            return;
-          }
-
-          // fallback: if no backdrop, try posters
-          const bestPoster = pickBest(j.posters || []);
-          if (bestPoster && bestPoster.file_path) {
-            setHeroSrc(`${IMAGE_BASE_URL}/original${bestPoster.file_path}`);
-            return;
-          }
-
-          setHeroSrc(null);
-        } catch (err) {
-          console.warn('Error resolving hero image', err);
-          setHeroSrc(null);
-        }
-      })();
-
-      // Fetch overview fallback if missing
-      (async () => {
-        try {
-          const API_KEY = import.meta.env.VITE_TMDB_API_KEY;
-          const BASE_URL = 'https://api.themoviedb.org/3';
-          if ((!movie.overview || movie.overview.trim() === '') && API_KEY && movie && movie.id) {
-            try {
-              const detRes = await fetch(`${BASE_URL}/movie/${movie.id}?api_key=${API_KEY}`);
-              const detJson = await detRes.json();
-              if (detJson && detJson.overview) setModalOverview(detJson.overview);
-            } catch (err) {
-              console.warn('Could not fetch movie details for overview fallback', err);
-            }
-          } else {
-            // ensure modalOverview reflects movie prop when present
-            setModalOverview(movie && movie.overview ? movie.overview : '');
-          }
-        } catch (err) {
-          // ignore
-        }
-      })();
-
-      // fetch 4-6 recommendations for this movie to show in modal
-      const fetchModalRecs = async () => {
-        try {
-          setModalRecsLoading(true);
-          const API_BASE = import.meta.env.VITE_API_BASE || '';
-          const API_KEY = import.meta.env.VITE_TMDB_API_KEY;
-          const tmdbId = movie.id || movie.tmdb_id;
-          if (!tmdbId) return;
-
-          // Try backend first (uses backend/app.py -> /api/recommendations/<movie>)
-          if (API_BASE) {
-            try {
-              const titleParam = encodeURIComponent(movie.title || movie.name || '');
-              const res = await fetch(`${API_BASE}/api/recommendations/${tmdbId}?limit=5&title=${titleParam}`);
-              const j = await res.json();
-              if (j && j.ok && Array.isArray(j.recommendations) && j.recommendations.length > 0) {
-                // keep only Telugu originals or likely dubbed items
-                const telugu = j.recommendations.filter(r => {
-                  const lang = r.original_language || '';
-                  const text = `${r.title || ''} ${r.overview || ''}`;
-                  return lang === 'te' || /telugu|డబ్బ|డబ్బింగ్|dubbed/i.test(text);
-                }).slice(0,5).map(r => ({ id: r.tmdb_id || r.id, title: r.title || r.name, poster_path: r.poster_path, release_date: r.release_date, vote_average: r.vote_average }));
-                if (telugu.length > 0) {
-                  setModalRecs(telugu);
-                  return;
-                }
-              }
-            } catch (e) {
-              // fall through to TMDB fallback
-            }
-          }
-
-          // Fallback: TMDB similar
-          if (API_KEY) {
-            try {
-              const r = await fetch(`https://api.themoviedb.org/3/movie/${tmdbId}/similar?api_key=${API_KEY}&language=en-US&page=1`);
-              const d = await r.json();
-              if (d && Array.isArray(d.results)) {
-                const tel = d.results.filter(item => {
-                  const lang = item.original_language || '';
-                  const text = `${item.title || ''} ${item.overview || ''}`;
-                  return lang === 'te' || /telugu|డబ్బ|డబ్బింగ్|dubbed/i.test(text);
-                }).slice(0,5).map(item => ({ id: item.id, title: item.title, poster_path: item.poster_path, release_date: item.release_date, vote_average: item.vote_average }));
-                if (tel.length > 0) setModalRecs(tel);
-              }
-            } catch (e) {
-              // ignore
-            }
-          }
-        } finally {
-          setModalRecsLoading(false);
-        }
-      };
-
-      fetchModalRecs();
-
-      return () => { cancelled = true; };
-    }, [movie && movie.id]);
-
-    
-
-    const isComingSoon = (() => {
-      if (!movie || !movie.release_date) return false;
-      try {
-        const rel = new Date(movie.release_date);
-        return rel > new Date();
-      } catch (e) {
-        return false;
-      }
-    })();
-
-    // Determine if this movie is currently in the "Now Playing" row
-    const isNowPlayingMovie = (() => {
-      try {
-        const mid = String(movie && (movie.id || movie.tmdb_id || movie._id || ''));
-        if (!mid) return false;
-        return (nowPlaying || []).some(m => String(m && (m.id || m.tmdb_id || m._id || '')) === mid);
-      } catch (e) {
-        return false;
-      }
-    })();
-
-    return (
-      <div className="modal-overlay">
-        <div className="modal-backdrop" onClick={onClose} />
-
-        <div className="modal">
-          <button className="modal-close" onClick={onClose}>
-            <X size={22} />
-          </button>
-
-          {/* HERO */}
-          <div className="modal-hero">
-            {heroSrc && (
-              <img
-                src={heroSrc}
-                alt={movie.title}
-                className="modal-hero-image"
-              />
-            )}
-
-            <div className="modal-hero-overlay" />
-
-            <div className="modal-hero-content">
-              <h2 className="modal-title">{movie.title}</h2>
-            </div>
-          </div>
-
-          {/* CONTENT */}
-          <div className="modal-content">
-            <p className="modal-description">{(modalOverview && modalOverview.trim()) ? modalOverview : (movie.overview || 'Overview not available.')}</p>
-
-            <div className="modal-details">
-              <div className="details-grid">
-                <div>
-                  <p className="detail-label">Rating</p>
-                  <p className="detail-value">
-                    {movie.vote_average ? movie.vote_average.toFixed(1) : 'N/A'}/10
-                  </p>
-                </div>
-
-                <div>
-                  <p className="detail-label">Release Date</p>
-                  <p className="detail-value">
-                    {formatDate(movie.release_date)}
-                  </p>
-                </div>
-
-                <div>
-                  <p className="detail-label">Genre</p>
-                  <p className="detail-value">{getGenreNames()}</p>
-                </div>
-              </div>
-            </div>
-
-            {providers && (
-              <div className="modal-providers">
-                <h3>Where to watch</h3>
-                {/* TMDB link removed per request */}
-
-                <div className="providers-sections">
-                  {providers.flatrate && providers.flatrate.length > 0 && (
-                    <div className="providers-section">
-                      <h4>Streaming</h4>
-                      <div className="provider-list">
-                        {providers.flatrate.map(p => (
-                          <div key={`f-${p.provider_id}`} className="provider-item">
-                            <span>{p.provider_name}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {providers.rent && providers.rent.length > 0 && (
-                    <div className="providers-section">
-                      <h4>Rent</h4>
-                      <div className="provider-list">
-                        {providers.rent.map(p => (
-                          <div key={`r-${p.provider_id}`} className="provider-item">
-                            <span>{p.provider_name}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {providers.buy && providers.buy.length > 0 && (
-                    <div className="providers-section">
-                      <h4>Buy</h4>
-                      <div className="provider-list">
-                        {providers.buy.map(p => (
-                          <div key={`b-${p.provider_id}`} className="provider-item">
-                            <span>{p.provider_name}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Modal recommendations */}
-            {modalRecs && modalRecs.length > 0 && !isNowPlayingMovie && !isComingSoon && (
-              <div style={{padding: '16px'}}>
-                <h3 style={{margin: '8px 0'}}>You can also watch</h3>
-                <MovieRow title="" movies={modalRecs} onMovieClick={(m) => { if (typeof setSelectedMovie === 'function') setSelectedMovie(m); }} />
-              </div>
-            )}
-
-            
-          </div>
-        </div>
-      </div>
-    );
-}
 

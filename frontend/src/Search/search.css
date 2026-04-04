@@ -1,0 +1,48 @@
+.search-page {
+  background: #000;
+  min-height: 100vh;
+  color: #fff;
+}
+
+.search-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 25px;
+  padding-left: 16px;
+  padding-right: 16px;
+}
+
+.search-title {
+  font-family: 'Cinzel', serif;
+  font-size: 28px;
+  margin: 0;
+}
+
+.results-container {
+  padding: 16px;
+}
+
+.results-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+
+.card-wrapper {
+  flex: 0 0 160px;
+}
+
+.no-results {
+  color: #9ca3af;
+  padding: 24px;
+}
+
+.search-header .go-back-btn {
+  margin-right: 8px;
+}
+
+.loading-text {
+  padding: 24px;
+}

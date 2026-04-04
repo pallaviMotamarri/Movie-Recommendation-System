@@ -1,7 +1,34 @@
+import React, { useEffect, useRef } from 'react';
 import { Search, Menu, X } from 'lucide-react';
 import './../dashboard.css';
 
 export default function Header({ isMenuOpen, setIsMenuOpen, onSelectGenre, searchOpen, setSearchOpen, searchQuery, setSearchQuery, onSearchSubmit }) {
+  const searchRef = useRef(null);
+  const menuRef = useRef(null);
+  const menuToggleRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (!searchOpen) return;
+      if (searchRef.current && !searchRef.current.contains(e.target)) {
+        setSearchOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [searchOpen, setSearchOpen]);
+
+  useEffect(() => {
+    const handleClickOutsideMenu = (e) => {
+      if (!isMenuOpen) return;
+      // If click is inside menu or on the toggle button, ignore
+      if (menuRef.current && menuRef.current.contains(e.target)) return;
+      if (menuToggleRef.current && menuToggleRef.current.contains(e.target)) return;
+      setIsMenuOpen(false);
+    };
+    document.addEventListener('mousedown', handleClickOutsideMenu);
+    return () => document.removeEventListener('mousedown', handleClickOutsideMenu);
+  }, [isMenuOpen, setIsMenuOpen]);
   const navItems = [
     { label: 'Comedy', href: '/genre/comedy' },
     { label: 'Romance', href: '/genre/romance' },
@@ -17,27 +44,30 @@ export default function Header({ isMenuOpen, setIsMenuOpen, onSelectGenre, searc
     <header className="header">
       <div className="header-container">
         <div className="header-content">
-          <div className="header-left">
-            <button 
-              className="menu-toggle"
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
-            >
-              {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
-            </button>
+          <div className="header-left" style={{display: 'flex', alignItems: 'center', gap: 12}}>
+            <div className="logo-container" style={{display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
+              <img src="/images/Logo.svg" alt="Telugu CineGuide" className="logo" />
+            </div>
             <div className="brand-text">
               <h1 className="brand-title">Telugu CineGuide</h1>
               <p className="brand-subtitle">Curated picks for Telugu movie lovers</p>
             </div>
           </div>
 
-          <div className="header-right">
+          <div className="header-right" style={{display: 'flex', alignItems: 'center', gap: 8}}>
             {searchOpen ? (
-              <div className="search-box">
+              <div className="search-box" ref={searchRef}>
                 <input
                   className="search-input"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search genre, actor or movie"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      if (typeof onSearchSubmit === 'function') onSearchSubmit(searchQuery);
+                      setSearchOpen(false);
+                    }
+                  }}
                 />
                 <button
                   className="search-submit"
@@ -45,13 +75,21 @@ export default function Header({ isMenuOpen, setIsMenuOpen, onSelectGenre, searc
                 >
                   Search
                 </button>
-                <button className="search-close" onClick={() => setSearchOpen(false)}>X</button>
               </div>
             ) : (
               <button className="search-btn" onClick={() => setSearchOpen(true)}>
                 <Search size={20} />
               </button>
             )}
+
+            <button 
+              className="menu-toggle"
+              aria-label="Menu"
+              ref={menuToggleRef}
+              onClick={() => setIsMenuOpen(!isMenuOpen)}
+            >
+              {isMenuOpen ? <X size={22} /> : <Menu size={22} />}
+            </button>
           </div>
         </div>
 
