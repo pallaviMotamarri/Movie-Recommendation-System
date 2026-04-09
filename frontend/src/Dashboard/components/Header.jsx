@@ -1,8 +1,10 @@
 import React, { useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Search, Menu, X } from 'lucide-react';
 import './../dashboard.css';
 
 export default function Header({ isMenuOpen, setIsMenuOpen, onSelectGenre, searchOpen, setSearchOpen, searchQuery, setSearchQuery, onSearchSubmit }) {
+  const navigate = useNavigate();
   const searchRef = useRef(null);
   const menuRef = useRef(null);
   const menuToggleRef = useRef(null);
@@ -45,7 +47,14 @@ export default function Header({ isMenuOpen, setIsMenuOpen, onSelectGenre, searc
       <div className="header-container">
         <div className="header-content">
           <div className="header-left" style={{display: 'flex', alignItems: 'center', gap: 12}}>
-            <div className="logo-container" style={{display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
+            <div
+              className="logo-container"
+              style={{display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer'}}
+              role="button"
+              tabIndex={0}
+              onClick={() => navigate('/')}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') navigate('/'); }}
+            >
               <img src="/images/Logo.svg" alt="Telugu CineGuide" className="logo" />
             </div>
             <div className="brand-text">
@@ -94,14 +103,16 @@ export default function Header({ isMenuOpen, setIsMenuOpen, onSelectGenre, searc
         </div>
 
         {isMenuOpen && (
-          <nav className="mobile-nav">
+          <nav className="mobile-nav" ref={menuRef}>
             <div className="mobile-nav-items">
               {navItems.map((item) => (
                 <button
                   key={item.label}
-                  type="button"
                   className="mobile-nav-item"
-                  onClick={() => { if (typeof onSelectGenre === 'function') onSelectGenre(item.label); setIsMenuOpen(false); }}
+                  onClick={() => {
+                    if (typeof onSelectGenre === 'function') onSelectGenre(item.label);
+                    setIsMenuOpen(false);
+                  }}
                 >
                   {item.label}
                 </button>

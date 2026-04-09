@@ -249,7 +249,7 @@ brand-text {
   justify-content: flex-end;
   z-index: 2000;
   pointer-events: auto;
-  background: transparent;
+  background: rgba(0, 0, 0, 0.9);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   animation: navFadeIn 220ms ease-out;
@@ -338,7 +338,6 @@ brand-text {
   .mobile-nav-items { width: 94%; margin: 8px; padding: 10px; gap: 6px; }
   .mobile-nav-item { padding: 10px 12px; font-size: 15px; }
 }
-
 
 /* Hero Carousel */
 .hero-carousel {

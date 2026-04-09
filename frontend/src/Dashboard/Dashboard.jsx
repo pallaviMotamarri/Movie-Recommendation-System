@@ -121,7 +121,7 @@ export default function Dashboard() {
               const id = r.tmdb_id || r.id || r.movieId;
               if (!id || seen.has(String(id))) return;
               seen.add(String(id));
-              collected.push({ id, title: r.title, poster_path: r.poster_path, release_date: r.release_date, vote_average: r.rating || r.vote_average, original_language: r.original_language, overview: r.overview, sources: ['watched'] });
+              collected.push({ id, title: r.title, poster_path: r.poster_path, backdrop_path: r.backdrop_path, backdrop_path: r.backdrop_path, release_date: r.release_date, vote_average: r.rating || r.vote_average, original_language: r.original_language, overview: r.overview, sources: ['watched'] });
             });
           }
         } catch (e) {
@@ -138,7 +138,7 @@ export default function Dashboard() {
             const id = item.id;
             if (!id || seen.has(String(id))) return;
             seen.add(String(id));
-            collected.push({ id, title: item.title, poster_path: item.poster_path, release_date: item.release_date, vote_average: item.vote_average, original_language: item.original_language, overview: item.overview, sources: ['tmdb_similar'] });
+            collected.push({ id, title: item.title, poster_path: item.poster_path, backdrop_path: item.backdrop_path || item.poster_path, release_date: item.release_date, vote_average: item.vote_average, original_language: item.original_language, overview: item.overview, sources: ['tmdb_similar'] });
           });
         } catch (e) {
           // ignore
@@ -183,7 +183,7 @@ export default function Dashboard() {
         return;
       }
 
-      const picks = filtered.slice(0, 2).map(r => ({ id: r.id, title: r.title, poster_path: r.poster_path, release_date: r.release_date, vote_average: r.vote_average, sources: r.sources || [] }));
+        const picks = filtered.slice(0, 2).map(r => ({ id: r.id, title: r.title, poster_path: r.poster_path, backdrop_path: r.backdrop_path, release_date: r.release_date, vote_average: r.vote_average, sources: r.sources || [] }));
       if (!cancelled) {
         setSessionRecommendations(prev => {
           const prevArr = Array.isArray(prev) ? [...prev] : [];
@@ -268,7 +268,7 @@ export default function Dashboard() {
                 const id = r.tmdb_id || r.id || r.movieId;
                 if (!id || seen.has(String(id))) return;
                 seen.add(String(id));
-                collected.push({ id, title: r.title, poster_path: r.poster_path, release_date: r.release_date, vote_average: r.rating || r.vote_average, original_language: r.original_language, overview: r.overview, sources: ['watched'] });
+                collected.push({ id, title: r.title, poster_path: r.poster_path, backdrop_path: r.backdrop_path, release_date: r.release_date, vote_average: r.rating || r.vote_average, original_language: r.original_language, overview: r.overview, sources: ['watched'] });
               });
             }
           } catch (e) {
@@ -286,7 +286,7 @@ export default function Dashboard() {
               const id = item.id;
               if (!id || seen.has(String(id))) return;
               seen.add(String(id));
-              collected.push({ id, title: item.title, poster_path: item.poster_path, release_date: item.release_date, vote_average: item.vote_average, original_language: item.original_language, overview: item.overview, sources: ['tmdb_similar'] });
+              collected.push({ id, title: item.title, poster_path: item.poster_path, backdrop_path: item.backdrop_path || item.poster_path, release_date: item.release_date, vote_average: item.vote_average, original_language: item.original_language, overview: item.overview, sources: ['tmdb_similar'] });
             });
           } catch (e) {
             // ignore
@@ -308,7 +308,7 @@ export default function Dashboard() {
         }
 
         // Pick up to 2 recommendations for this click and append to existing sessionRecommendations
-        const picks = filtered.slice(0, 2).map(r => ({ id: r.id, title: r.title, poster_path: r.poster_path, release_date: r.release_date, vote_average: r.vote_average, sources: r.sources }));
+        const picks = filtered.slice(0, 2).map(r => ({ id: r.id, title: r.title, poster_path: r.poster_path, backdrop_path: r.backdrop_path, release_date: r.release_date, vote_average: r.vote_average, sources: r.sources }));
         if (!cancelled) {
           console.debug('[recs] per-movie picks=', picks.map(p => p.id), 'for', tmdbId);
           setSessionRecommendations(prev => {

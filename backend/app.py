@@ -117,7 +117,8 @@ def get_recommendations_by_movie_id(movie_id, n=10):
             'title': rec.get('title', ''),
             'original_language': rec.get('original_language', ''),
             'overview': rec.get('overview', ''),
-            'poster_path': rec.get('poster_path', ''),
+            'poster_path': rec.get('poster_path') if pd.notna(rec.get('poster_path')) else '',
+            'backdrop_path': (rec.get('backdrop_path') if pd.notna(rec.get('backdrop_path')) else '') or (rec.get('poster_path') if pd.notna(rec.get('poster_path')) else ''),
             'release_date': rec.get('release_date', ''),
             'vote_average': rec.get('vote_average', 0),
             'similarity_score': float(sim_scores[i][1])
@@ -148,7 +149,8 @@ def get_recommendations_by_title(title, n=10):
                 'title': rec.get('title', ''),
                 'original_language': rec.get('original_language', ''),
                 'overview': rec.get('overview', ''),
-                'poster_path': rec.get('poster_path', ''),
+                'poster_path': rec.get('poster_path') if pd.notna(rec.get('poster_path')) else '',
+                'backdrop_path': (rec.get('backdrop_path') if pd.notna(rec.get('backdrop_path')) else '') or (rec.get('poster_path') if pd.notna(rec.get('poster_path')) else ''),
                 'release_date': rec.get('release_date', ''),
                 'vote_average': rec.get('vote_average', 0),
                 'similarity_score': float(sim_scores[i][1])

@@ -30,11 +30,21 @@ export default function GenreView({ genre = '', movies = [], loading = false, on
       )}
 
       <div className="genre-grid" style={{ padding: '16px' }}>
-        {(movies || []).map(movie => (
-          <div key={movie.id || movie.tmdb_id || movie._id} style={{ marginBottom: 12 }}>
-            <MovieCard movie={movie} onClick={onMovieClick} />
+        {loading ? (
+          <div style={{ textAlign: 'center', padding: '40px', color: '#e6eef8' }}>
+            Loading {genre} movies...
           </div>
-        ))}
+        ) : (movies || []).length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '40px', color: '#e6eef8' }}>
+            No {genre} movies found.
+          </div>
+        ) : (
+          (movies || []).map(movie => (
+            <div key={movie.id || movie.tmdb_id || movie._id} style={{ marginBottom: 12 }}>
+              <MovieCard movie={movie} onClick={onMovieClick} />
+            </div>
+          ))
+        )}
       </div>
     </div>
   );

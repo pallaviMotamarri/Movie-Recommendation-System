@@ -34,6 +34,7 @@ export default function MovieDetailModal({ movie, onClose, genres, setSelectedMo
   const [modalRecs, setModalRecs] = useState([]);
   const [modalRecsLoading, setModalRecsLoading] = useState(false);
   const [detailOverview, setDetailOverview] = useState(movie && movie.overview ? movie.overview : '');
+  const [detailBackdropPath, setDetailBackdropPath] = useState(movie && movie.backdrop_path ? movie.backdrop_path : '');
 
   useEffect(() => {
     if (!movie || !movie.id) return;
@@ -77,24 +78,31 @@ export default function MovieDetailModal({ movie, onClose, genres, setSelectedMo
       }
     };
     fetchProviders();
-      // If overview is missing, fetch full movie details from TMDB
-      (async () => {
-        try {
-          if (movie && (!movie.overview || movie.overview.trim() === '')) {
-            const API_KEY = import.meta.env.VITE_TMDB_API_KEY;
-            const BASE_URL = 'https://api.themoviedb.org/3';
-            if (API_KEY) {
-              const detRes = await fetch(`${BASE_URL}/movie/${movie.id}?api_key=${API_KEY}`);
-              const detJson = await detRes.json();
-              if (detJson && detJson.overview) {
-                if (!cancelled) setDetailOverview(detJson.overview);
-              }
+
+    setDetailBackdropPath(movie.backdrop_path || '');
+    setDetailOverview(movie.overview || '');
+
+    // Fetch full TMDB details to get backdrop_path when only poster data is present
+    (async () => {
+      try {
+        const API_KEY = import.meta.env.VITE_TMDB_API_KEY;
+        const BASE_URL = 'https://api.themoviedb.org/3';
+        if (API_KEY) {
+          const detRes = await cachedFetch(`${BASE_URL}/movie/${movie.id}?api_key=${API_KEY}`);
+          const detJson = await detRes.json();
+          if (!cancelled && detJson) {
+            if (detJson.backdrop_path && detJson.backdrop_path !== movie.poster_path) {
+              setDetailBackdropPath(detJson.backdrop_path);
+            }
+            if ((!movie.overview || movie.overview.trim() === '') && detJson.overview) {
+              setDetailOverview(detJson.overview);
             }
           }
-        } catch (err) {
-          console.warn('Could not fetch movie details for overview fallback', err);
         }
-      })();
+      } catch (err) {
+        console.warn('Could not fetch movie details for backdrop or overview fallback', err);
+      }
+    })();
 
       // Fetch recommendations for modal: try backend then TMDB similar as fallback
       const fetchModalRecs = async () => {
@@ -160,8 +168,12 @@ export default function MovieDetailModal({ movie, onClose, genres, setSelectedMo
       <div className="modal">
         <button className="modal-close" onClick={onClose}><X size={22} /></button>
         <div className="modal-hero">
-          {movie.backdrop_path && (
-            <img src={`${IMAGE_BASE_URL}/original${movie.backdrop_path}`} alt={movie.title} className="modal-hero-image" />
+          {(detailBackdropPath || movie.backdrop_path || movie.poster_path) && (
+            <img
+              src={`${IMAGE_BASE_URL}/original${detailBackdropPath || movie.backdrop_path || movie.poster_path}`}
+              alt={movie.title}
+              className={`modal-hero-image ${!(detailBackdropPath || movie.backdrop_path) ? 'modal-hero-image--poster' : ''}`}
+            />
           )}
           <div className="modal-hero-overlay" />
           <div className="modal-hero-content"><h2 className="modal-title">{movie.title}</h2></div>

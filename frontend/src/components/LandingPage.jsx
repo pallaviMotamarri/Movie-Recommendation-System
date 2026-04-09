@@ -94,7 +94,7 @@ const LandingPage = () => {
             <section className="features-section">
               <div className="features-container">
                 <div className="features-grid">
-                  {/* Smart Selections */}
+                  {/* Smart Selections
                   <button className="feature-card" onClick={() => handleSmartSelections()}>
                     <p className="feature-tag">
                       Smart Selections
@@ -109,13 +109,13 @@ const LandingPage = () => {
                         Answer one question at a time and we will tailor picks to your taste.
                       </p>
                     </div>
-                  </button>
+                  </button> */}
 
                   {/* Local Flavours */}
                   <button className="feature-card" onClick={() => handleLocalFlavours()}>
-                    <p className="feature-tag">
+                    {/* <p className="feature-tag">
                       Local Flavours
-                    </p>
+                    </p> */}
                     
                     <div className="feature-content">
                       <h3 className="feature-title">
@@ -130,9 +130,9 @@ const LandingPage = () => {
 
                   {/* Quick Search */}
                   <button className="feature-card" onClick={() => handleQuickSearch()}>
-                    <p className="feature-tag">
+                    {/* <p className="feature-tag">
                       Quick Search
-                    </p>
+                    </p> */}
                     
                     <div className="feature-content">
                       <h3 className="feature-title">
